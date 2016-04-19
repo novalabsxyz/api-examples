@@ -54,15 +54,22 @@ export PLOTLY_API_USER=<your plotly username>
 This way you don't have to specify them in every command.
 
 Once set up you ca create a plot for a given sensor or for all sensor under
-a label. You can specify start and end-dates and use the `page-size` parameter
-to indicate the number of points to plot.
-
+a label. You can specify start and end-dates, the specific `port` to use and
+use the `page-size` parameter to indicate the number of points to plot.
 
 ``` shellsession
- ./plot.py plot --help
+./plot.py plot --help
 Usage: plot.py plot [OPTIONS] [SENSOR]...
 
+  Plots a graph.
 
+  Plots a graph for given list of SENSORs or for a specific label if given.
+
+  Readings can be filtered by PORT (`t` by default )and by START and END
+  date. Dates are given in ISO-8601 and may be one of the following forms:
+
+  * YYYY-MM-DD - Example: 2016-05-05
+  * YYYY-MM-DDTHH:MM:SSZ - Example: 2016-04-07T19:12:06Z
 
 Options:
   --open                          Whether to open the browser on completion
@@ -75,4 +82,5 @@ Options:
   --port TEXT                     the port to filter readings on
   --page-size INTEGER             the number of readings to get per request
   --help                          Show this message and exit.
+
 ```

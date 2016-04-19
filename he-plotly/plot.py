@@ -71,7 +71,16 @@ def _plot_data(config, sensor, **kwargs):
 @ts.options()
 @pass_config
 def plot(config, sensor, label, **kwargs):
-    """
+    """Plots a graph.
+
+    Plots a graph for given list of SENSORs or for a specific label if given.
+
+    Readings can be filtered by PORT (`t` by default )and by START and END date.
+    Dates are given in ISO-8601 and may be one of the following forms:
+
+    \b
+    * YYYY-MM-DD - Example: 2016-05-05
+    * YYYY-MM-DDTHH:MM:SSZ - Example: 2016-04-07T19:12:06Z
     """
     if not kwargs.get("port"):
         kwargs["port"] = ("t")
