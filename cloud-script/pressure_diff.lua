@@ -2,12 +2,9 @@ local Input  = require "input"
 local Output = require "output"
 
 -- Input / output
-local idA = "5a65f622-9d91-4117-934e-0f7afac86fff"
-local idB = "6a65f622-9d91-4117-934e-0f7afac86fff"
-local idC = "7a65f622-9d91-4117-934e-0f7afac86fff"
-local A = Input.sensor(idA)
-local B = Input.sensor(idB)
-local C = Output.sensor(idC,"diff_p")
+local A = Input.sensor "5a65f622-9d91-4117-934e-0f7afac86fff"
+local B = Input.sensor "6a65f622-9d91-4117-934e-0f7afac86fff"
+local C = Output.sensor("7a65f622-9d91-4117-934e-0f7afac86fff", "diff_p")
 
 -- State
 local lastA
@@ -19,11 +16,8 @@ local function callback(x)
   print("In the callback")
 
   -- Remember the most recent values
-  local src = x.source.sensor
-  if src == idA then
-    lastA = x
-  elseif src == idB then
-    lastB = x
+  if     x.source == A then lastA = x
+  elseif x.source == B then lastB = x
   end
 
   -- Proceed only if we've heard from both previously
