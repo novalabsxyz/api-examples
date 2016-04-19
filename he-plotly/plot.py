@@ -66,9 +66,11 @@ def _plot_data(config, sensor, **kwargs):
               help="Sharing setting for plot.ly")
 @click.option('--filename', default="sensor-timeseries",
               help="The plot.ly filename for the resulting plot")
+@click.option('--label',
+              help="The label id to plot")
 @ts.options()
 @pass_config
-def plot(config, sensor, **kwargs):
+def plot(config, sensor, label, **kwargs):
     """
     """
     if not kwargs.get("port"):
@@ -76,6 +78,10 @@ def plot(config, sensor, **kwargs):
     else:
         kwargs["port"] = (kwargs["port"][0])
     ts_port = kwargs["port"][0]
+
+    if label:
+        sensor_list = config.service.get_label(label,include="sensor").get('included')
+        sensor = dpath.values(sensor_list, "*/id")
 
     plot_data = [_plot_data(config, entry, **kwargs) for entry in sensor]
 
