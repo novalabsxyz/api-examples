@@ -1,7 +1,4 @@
-all: assets/stylesheets/css/site.css
-
-.PHONY: default
-default: html
+all: assets/stylesheets/css/site.css dependencies
 
 PYTHON ?= python2.7
 VIRTUALENV_DIR ?= env

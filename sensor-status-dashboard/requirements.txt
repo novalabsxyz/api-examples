@@ -4,6 +4,8 @@ MarkupSafe==0.23
 Werkzeug==0.11.11
 click==6.6
 future==0.15.2
+gevent==1.1.2
+greenlet==0.4.10
 gunicorn==19.6.0
 helium-python==0.2.3
 inflection==0.3.1
