@@ -39,7 +39,9 @@ def index():
             reading = ts[0].value
             if isinstance(reading, float):
                 reading = round(reading, 2)
-            sensor_map[s.id]['value'] = reading
+                sensor_map[s.id]['value'] = reading
+            else:
+                sensor_map[s.id]['value'] = 'n/a'
         else:
             sensor_map[s.id]['value'] = 'n/a'
 
@@ -54,7 +56,9 @@ def live():
         timeseries = sensor.timeseries()
         with closing (timeseries.live()) as live:
             for l in live:
-                q.put({"id": sensor.id, "data": l.value})
+                if isinstance(l.value, float):
+                    val = round(l.value, 2)
+                    q.put({"id": sensor.id, "data": val})
 
     sensors = client.sensors()
     q = gevent.queue.Queue()
