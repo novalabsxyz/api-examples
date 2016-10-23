@@ -1,0 +1,13 @@
+<!doctype html>
+<title>Helium Sensor Status</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='stylesheets/css/site.css') }}">
+<script type="text/javascript" src="{{ url_for('static', filename='javascript/site.js') }}"></script>
+    <ul class="sensor-list">
+    {% for sensor in sensors %}
+        <li id="{{ sensor.id }}">
+            <p class="sensor-data">{{ sensor.value }}</p>
+            <h2 class="sensor-name">{{ sensor.name }}</h2>
+        </li>
+    {% endfor %}
+    </ul>
