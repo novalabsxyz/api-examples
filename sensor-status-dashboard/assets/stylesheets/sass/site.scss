@@ -4,8 +4,12 @@
 
 $purple: #D475E7;
 $dark-purple: #BF4FD6;
-$grey: rgb(51, 51, 51);
+$yellow: #F1FD7D;
+$grey: #333333;
+$light-grey: #F2F2F2;
 $dark-grey: grey;
+$blue: #4893BD;
+$light-blue: #6CBDF4;
 
 $transition-time: 0.05s;
 $transition-out-time: 1s;
@@ -14,14 +18,21 @@ h1 {
     font-size: 2em;
 }
 
+a, a:visited {
+    text-decoration: none;
+    color: $grey;
+}
+
 body {
     font-family: 'Helvatica', 'Arial', sans-serif;
     margin: auto;
-    color: white;
-    background-color: $purple;
+    height: auto;
+    color: $dark-grey;
+    background-color: white;
     @include media (max-width 41em) {
         margin: 1em;
     }
+    position: relative;
 }
 
 ul.sensor-list {
@@ -35,7 +46,7 @@ ul.sensor-list {
     @include media(min-width 320px max-width 480px, 3) {
         @include span-columns(3);
     }
-    background-color: $dark-purple;
+    background-color: $light-grey;
     margin: 0.25em;
     padding: 0.5em;
     padding-left: 1em;
@@ -44,8 +55,27 @@ ul.sensor-list {
 .sensor-data {
     font-size: 6em;
     margin: auto;
+    color: $blue;
 }
 
 .sensor-name {
     font-size: 1em;
+    color: $dark-grey;
+}
+
+#helium-info {
+    list-style-type: none;
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    padding: 0;
+    margin-bottom: 0;
+    background-color: $light-grey;
+    border-radius: 0.2em;
+}
+
+li.helium-resource {
+    margin: 0;
+    padding: 0.5em;
+    padding-left: 1em;
 }

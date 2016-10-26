@@ -37,7 +37,7 @@ def index():
         ts = list(islice(its, 1))
         if ts:
             reading = ts[0].value
-            if isinstance(reading, float):
+            if isinstance(reading, float) or isinstance(reading, int):
                 reading = round(reading, 2)
                 sensor_map[s.id]['value'] = reading
             else:
@@ -56,7 +56,7 @@ def live():
         timeseries = sensor.timeseries()
         with closing (timeseries.live()) as live:
             for l in live:
-                if isinstance(l.value, float):
+                if isinstance(l.value, float) or isinstance(l.value, int):
                     val = round(l.value, 2)
                     q.put({"id": sensor.id, "data": val})
 
