@@ -1,7 +1,0 @@
-requests
-click
-helium-commander
-dpath
-requests
-apscheduler
-pyyaml
