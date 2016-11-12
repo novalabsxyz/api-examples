@@ -1,0 +1,6 @@
+requests
+click
+helium-python
+dpath
+apscheduler
+plotly
