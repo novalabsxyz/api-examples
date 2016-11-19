@@ -1,7 +1,4 @@
-requests
 click
-helium-commander
-dpath
+helium-python
 requests
 apscheduler
-pyyaml
