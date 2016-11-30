@@ -43,6 +43,8 @@ var/
 *.egg-info/
 .installed.cfg
 *.egg
+.python-version
+.ipynb_checkpoints
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -84,5 +86,3 @@ target/
 # json files
 *.json
 
-# The service configuration file
-config.yaml
