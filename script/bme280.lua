@@ -1,3 +1,5 @@
+-- BME-280 Helium Script
+-- Datasheet: https://ae-bst.resource.bosch.com/media/_tech/media/datasheets/BST-BME280_DS001-11.pdf
 i2c = he.i2c
 
 BME280_ADDR = 0x77
