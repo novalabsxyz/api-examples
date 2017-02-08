@@ -117,7 +117,7 @@ function bme280:read_temperature()
             * (result / 131072 - cal.t1 / 8192)) * cal.t3
     -- stash calibrated temperature
     local t_fine   = x1 + x2
-    return true, {t_fine, t_fine / 5120} -- calibration temp, celsius
+    return true, t_fine, t_fine / 5120 -- calibration temp, celsius
 end
 
 
@@ -250,8 +250,7 @@ sensor = assert(bme280:new())
 -- get current time
 local now = he.now()
 while true do
-    local _, temps = assert(sensor:read_temperature())
-    local calibration_temp, temperature = table.unpack(temps)
+    local _, calibration_temp, temperature = assert(sensor:read_temperature())
     local _, humidity = assert(sensor:read_humidity(calibration_temp))
     local _, pressure = assert(sensor:read_pressure(calibration_temp))
 
