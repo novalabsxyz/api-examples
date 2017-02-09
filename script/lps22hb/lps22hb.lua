@@ -22,9 +22,10 @@ function lps22hb:new(address)
     -- https://www.lua.org/pil/16.1.html
     -- construct the object table
     local o = { address = address }
-    -- ensure that the "class" is the main table
+    -- ensure that the "class" is the metatable
     setmetatable(o, self)
-    -- to ensure none ":" based calls also work
+    -- and that the metatable's index function is set
+    -- Refer to https://www.lua.org/pil/16.1.html
     self.__index = self
     -- Check that the sensor is connected
     status, reason = o:is_connected()
