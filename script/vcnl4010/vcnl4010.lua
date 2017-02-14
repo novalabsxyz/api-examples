@@ -130,7 +130,7 @@ while true do
 
     -- send ambient light level as a float "f" on port "l"
     he.send("l", now, "f", ambient)
-    -- send pressure as a float "f" on port "pr"
+    -- send proximity as a float "f" on port "pr"
     he.send("pr", now, "f", proximity)
 
     -- Un-comment the following line to see results in semi-hosted mode
