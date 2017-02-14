@@ -137,7 +137,7 @@ while true do
     -- print(ambient, proximity)
 
     -- turn the IR LED back off
-    sensor:set_led_current(20) -- max current, 200ma
+    sensor:set_led_current(0) -- max current, 200ma
 
     -- wait for SAMPLE_INTERVAL time
     now = he.wait{time=now + SAMPLE_INTERVAL}
