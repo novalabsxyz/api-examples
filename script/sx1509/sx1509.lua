@@ -223,7 +223,7 @@ now = he.now() --set current time
 he.interrupt_cfg("int0", "e", 10)
 digital = assert(sx1509:new())
 digital:reset()
---digital:set_clock(true)
+digital:set_clock(true)
 digital:set_pin_direction(1, "input") --set pin 1 as an input pin
 digital:set_pin_direction(14, "output") --set pin 14 (green LED) as an output pin
 
