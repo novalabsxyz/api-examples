@@ -2,7 +2,7 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 10000 -- milliseconds
+SAMPLE_INTERVAL = 60000 -- 1 minute
 
 
 bme280 = {
@@ -58,13 +58,18 @@ function bme280:new(address)
     if not status then
         return status, reason
     end
+    return o:calibrate()
+end
+
+
+function bme280:calibrate()
     -- Configure sampling rates, by setting humidity first
     -- Datasheet section 7.4.3
     local status, buffer =
-        i2c.txn(i2c.tx(address, bme280.CTRL_HUM, bme280.OVERSAMPLE_X16),
-                i2c.rx(address, 1))
+        i2c.txn(i2c.tx(self.address, self.CTRL_HUM, self.OVERSAMPLE_X16),
+                i2c.rx(self.address, 1))
 
-    if not (status and bme280.OVERSAMPLE_X16 == string.unpack("B", buffer)) then
+    if not (status and self.OVERSAMPLE_X16 == string.unpack("B", buffer)) then
         return false, "failed to set humidity oversampling"
     end
 
@@ -75,25 +80,24 @@ function bme280:new(address)
         | bme280.OVERSAMPLE_X16 << 2 -- pressure data oversampling
         | bme280.CTRL_MEAS_MODE_NORMAL
     local status, buffer =
-        i2c.txn(i2c.tx(address, bme280.CTRL_MEAS, measure_mode),
-                i2c.rx(address, 1))
+        i2c.txn(i2c.tx(self.address, bme280.CTRL_MEAS, measure_mode),
+                i2c.rx(self.address, 1))
     if (not status and measure_mode == string.unpack("B", buffer)) then
         return false, "failed to configure oversampling"
     end
 
     -- And read the calibration data
-    local status, result = pcall(function() return o:_get_calibration() end)
+    local status, result = pcall(function() return self:_get_calibration() end)
     if not status then
         return status, result
     end
-    o.calibration = result
-    return o
+    self.calibration = result
+    return self
 end
 
-
 function bme280:is_connected()
-    status, device_id = self:_get(bme280.ID, "B")
-    if not (status and device_id == 0x60) then
+    local result = self:_get(bme280.ID, "B")
+    if not (result and result == 0x60) then
         return false, "could not locate device"
     end
     return true
@@ -102,12 +106,12 @@ end
 
 function bme280:read_temperature()
     -- read the temperature fragments
-    local status, result =
+    local result, reason =
         self:_get(bme280.TEMPERATURE, "BBB",
                   function(t1, t2, t3)
                       return (t1 << 12) | (t2 << 4) | (t3 >> 4) end)
-    if not status then
-        return status, result
+    if not result then
+        return result, reason
     end
 
     -- convert based on datasheet
@@ -117,7 +121,7 @@ function bme280:read_temperature()
             * (result / 131072 - cal.t1 / 8192)) * cal.t3
     -- stash calibrated temperature
     local t_fine   = x1 + x2
-    return true, t_fine, t_fine / 5120 -- calibration temp, celsius
+    return t_fine, t_fine / 5120 -- calibration temp, celsius
 end
 
 
@@ -126,12 +130,12 @@ function bme280:read_pressure(t_fine)
         return false, "reading pressure requires a calibration temperature"
     end
     -- read the pressure fragments
-    local status, result =
+    local result, reason =
         self:_get(bme280.PRESSURE, "BBB",
                   function(p1, p2, p3)
                       return (p1 << 12) | (p2 << 4) | (p3 >> 4) end)
-    if not status then
-        return status, result
+    if not result then
+        return result, reason
     end
     -- convert to pressure based on data sheet, calibration data and temperature
     local cal = self.calibration
@@ -146,14 +150,14 @@ function bme280:read_pressure(t_fine)
     if (x1 ~= 0) then
         p = (p - (x2 / 4096)) * 6250 / x1
     else
-        return true, 0
+        return 0
     end
 
     x1 = cal.p9 * p * p / 2147483648
     x2 = p * cal.p8 / 32768
     p  = p + (x1 + x2 + cal.p7) / 16
 
-    return true, p -- pascals
+    return p -- pascals
 end
 
 
@@ -162,11 +166,11 @@ function bme280:read_humidity(t_fine)
         return false, "reading humidity requires a calibration temperature"
     end
     -- read humidity fragments
-    local status, result =
+    local result, reason =
         self:_get(bme280.HUMIDITY, "BB",
-                  function(h1, h2) return h1 << 8 | h2 end)
-    if not status then
-        return status, result
+                  function(h1, h2) return (h1 << 8) | h2 end)
+    if not result then
+        return result, reason
     end
     -- convert to humidity based on data sheet, calibration data and temperature
     local cal = self.calibration
@@ -181,7 +185,7 @@ function bme280:read_humidity(t_fine)
         h = 0
     end
 
-    return true, h --percentage
+    return h --percentage
 end
 
 
@@ -193,25 +197,22 @@ function bme280:_get(reg, pack_fmt, convert)
     if not status then
         return false, "failed to get value from device"
     end
-    -- get the values and capture them in a list
-    values = {string.unpack(pack_fmt, buffer)}
     -- call conversion function if given
     if convert then
-        values = {convert(table.unpack(values))}
+        return convert(string.unpack(pack_fmt, buffer))
     end
-    -- return the values as an unpacked tuple
-    return true, table.unpack(values)
+    return string.unpack(pack_fmt, buffer)
 end
 
 
 function bme280:_get_calibration()
     --read calibration data from the BME
     local function _get(reg, pack)
-        status, value = self:_get(reg, pack)
-        if not status then
-            error("failed to read calibration data")
+        result, reason = self:_get(reg, pack)
+        if not result then
+            error(reason)
         end
-        return value
+        return result
     end
     return {
         --temperature values
@@ -240,9 +241,8 @@ function bme280:_get_calibration()
     }
 end
 
--- turn on V_sw
+-- turn on V_sw and let the sensor settle
 he.power_set(true)
-he.wait{time=he.now() + 100}
 
 -- construct sensor on default address
 sensor = assert(bme280:new())
@@ -250,9 +250,9 @@ sensor = assert(bme280:new())
 -- get current time
 local now = he.now()
 while true do
-    local _, calibration_temp, temperature = assert(sensor:read_temperature())
-    local _, humidity = assert(sensor:read_humidity(calibration_temp))
-    local _, pressure = assert(sensor:read_pressure(calibration_temp))
+    local calibration_temp, temperature = assert(sensor:read_temperature())
+    local humidity = assert(sensor:read_humidity(calibration_temp))
+    local pressure = assert(sensor:read_pressure(calibration_temp))
 
     -- turn power off to save battery
     he.power_set(false)
