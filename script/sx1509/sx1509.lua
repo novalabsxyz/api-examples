@@ -324,7 +324,9 @@ now = he.now() --set current time
 he.interrupt_cfg("int0", "e", 10)
 digital = assert(sx1509:new())
 digital:reset()
+-- debounce and LED driver need the clock enabled
 digital:set_clock(true)
+-- turn on the LED driver
 digital:enable_led_driver(true)
 digital:set_pin_direction(13, "output") --set pin 13 (red LED) as an output pin
 digital:set_pin_direction(14, "output") --set pin 14 (green LED) as an output pin
@@ -333,34 +335,40 @@ digital:set_led_driver(13, true) -- connect them to the LED driver so we can use
 digital:set_led_driver(14, true)
 digital:set_led_driver(15, true)
 
-
--- hook up switches to both pin 1 and pin 2
 digital:set_pin_direction(1, "input") --set pin 1 as an input pin
-digital:set_pin_direction(2, "input") --set pin 2 as an input pin
 
-digital:set_pin_interrupt(1, true, "e") -- like he.interrupt, takes r, f or e
-digital:set_pin_event(2, "e") -- just monitor the pin for an event, don't interrupt when it happens
-digital:set_pin_debounce(1, true)
-digital:set_debounce_rate(7) -- the max
+digital:set_pin_interrupt(1, true, "f") -- like he.interrupt, takes r, f or e
+digital:set_debounce_rate(6) -- 7 is the max
 
--- turn off all the LED colors
-digital:set_pin_pwm(13, pwm.ION, 255)
-digital:set_pin_pwm(14, pwm.ION, 255)
-digital:set_pin_pwm(15, pwm.ION, 255)
+-- pick a random starting point for the LED colors
+local i = math.random(0, 255)
+local j = math.random(0, 255)
+local k = math.random(0, 255)
+digital:set_pin_pwm(13, pwm.ION, i)
+digital:set_pin_pwm(14, pwm.ION, j)
+digital:set_pin_pwm(15, pwm.ION, k)
 
+-- process around the color space, if we get an interrupt, jump to a new random RGB coordinate
 while true do --main loop
-    now, new_events, events = he.wait{time=5000 + now}
+    now, new_events, events = he.wait{time=500 + now}
     if new_events then
-        -- unless autoclear is disabled, we need to check the interrupt/event status first
-        print(digital:interrupt_status(1)) -- pin 1 will always be true here
-        print(digital:interrupt_status(2)) -- pin 2 will NEVER be true here
-        print(digital:event_status(1)) -- pin 1 will always have an event here
-        print(digital:event_status(2)) -- if the switch on pin 2 was pressed since the last interrupt, this will be true
-        print("interrupted")
+        -- switch on pin 1 triggered
         digital:clear_events()
-        -- set the LEDs to a random color
-        digital:set_pin_pwm(13, pwm.ION, math.random(0, 255))
-        digital:set_pin_pwm(14, pwm.ION, math.random(0, 255))
-        digital:set_pin_pwm(15, pwm.ION, math.random(0, 255))
+        -- clear the LEDs so they blink off
+        digital:set_pin_pwm(13, pwm.ION, 255)
+        digital:set_pin_pwm(14, pwm.ION, 255)
+        digital:set_pin_pwm(15, pwm.ION, 255)
+        -- set the LEDs to a new random color
+        i = math.random(0, 255)
+        j = math.random(0, 255)
+        k = math.random(0, 255)
+    else
+        -- just increment the colors
+        i = (i+5) & 0xff
+        j = (j+5) & 0xff
+        k = (k+5) & 0xff
     end
+    digital:set_pin_pwm(13, pwm.ION, i)
+    digital:set_pin_pwm(14, pwm.ION, j)
+    digital:set_pin_pwm(15, pwm.ION, k)
 end
