@@ -6,6 +6,8 @@
 -- 10 => 0x70
 -- 11 => 0x71
 
+i2c = he.i2c
+
 sx1509 = {
     DEFAULT_ADDRESS   = 0x3E,
     INPUTDISABLEB     = 0x00,
@@ -43,7 +45,36 @@ sx1509 = {
     MISC              = 0x1F
 }
 
-i2c = he.i2c
+local pwm = {
+    TON  = 0x01,
+    ION  = 0x02,
+    OFF  = 0x04,
+    RISE = 0x08,
+    FALL = 0x0F,
+}
+
+pwm.CORE = pwm.TON | pwm.ION | pwm.OFF
+pwm.ALL = pwm.CORE | pwm.RISE | pwm.FALL
+pwm.descriptors = {
+    {0x29, pwm.CORE}, -- pin 0
+    {0x2C, pwm.CORE}, -- pin 1
+    {0x2F, pwm.CORE}, -- pin 2
+    {0x32, pwm.CORE}, -- pin 3
+    {0x35, pwm.ALL }, -- pin 4
+    {0x3A, pwm.ALL }, -- pin 5
+    {0x3F, pwm.ALL }, -- pin 6
+    {0x44, pwm.ALL }, -- pin 7
+    {0x49, pwm.CORE}, -- pin 8
+    {0x4C, pwm.CORE}, -- pin 9
+    {0x4F, pwm.CORE}, -- pin 10
+    {0x52, pwm.CORE}, -- pin 11
+    {0x55, pwm.ALL }, -- pin 12
+    {0x5A, pwm.ALL }, -- pin 13
+    {0x5F, pwm.ALL }, -- pin 14
+    {0x64, pwm.ALL }, -- pin 15
+}
+
+sx1509.pwm = pwm
 
 function sx1509:new(address)
     address = address or sx1509.DEFAULT_ADDRESS
@@ -61,7 +92,6 @@ function sx1509:new(address)
     if not status then
         return status, reason
     end
-    print(o)
     return o
 end
 
@@ -90,25 +120,53 @@ function sx1509:_get(reg, pack_fmt, convert)
     return string.unpack(pack_fmt, buffer)
 end
 
-function sx1509:set_pin_direction(pin, val)
-    local mask = (1 << pin)
-    if (val == "output") then
-        return self:_update_register(self.DIRB, ">I2", function(r) return r & ~mask end)
+function sx1509:_update(reg, pack_fmt, update)
+    -- read register, apply a function to the result and write it back
+    -- number of bytes to read based on the pack string
+    if not update then
+        return false, "you must supply an update function"
+    end
+    local pack_size = string.packsize(pack_fmt)
+    local status, buffer =
+        i2c.txn(i2c.tx(self.address, reg), i2c.rx(self.address, pack_size))
+    if not status then
+        return false, "failed to get value from device"
+    end
+    -- call update function
+    local newvalue = string.unpack(pack_fmt, buffer)
+    newvalue = update(newvalue)
+    status, buffer =
+        i2c.txn(i2c.tx(self.address, reg, string.pack(pack_fmt, newvalue)))
+    if not status then
+        return false, "unable to set value"
+    end
+    return newvalue
+end
+
+local function bit_set(bit, value, condition)
+    local mask = (1 << bit)
+    if condition then
+        return value | mask
     else
-        return self:_update_register(self.DIRB, ">I2", function(r) return r | mask end)
+        return value & ~mask
     end
 end
 
--- interrupts and edge events are 2 different things, the sx1509 can apparently watch for edge events
--- and record them independently of throwing an interrupt
-function sx1509:set_pin_interrupt(pin, val, direction)
-    local mask = (1 << pin)
-    local status = false
-    if (val == true) then
-        status = self:_update_register(self.INTERRUPTB, ">I2", function(r) return r & ~mask end)
-    else
-        status = self:_update_register(self.INTERRUPTB, ">I2", function(r) return r | mask end)
+function sx1509:set_pin_direction(pin, val)
+    local update = function(r)
+        return bit_set(pin, r, not (val == "output"))
     end
+    return self:_update(self.DIRB, ">I2", update)
+end
+
+-- interrupts and edge events are 2 different things, the sx1509 can
+-- apparently watch for edge events and record them independently of
+-- throwing an interrupt
+function sx1509:set_pin_interrupt(pin, val, direction)
+    local update = function(r)
+        return bit_set(pin, r, not val)
+    end
+    local status = self:_update(self.INTERRUPTB, ">I2", update)
     if not status then
         return false, "unable to enable interrupt"
     end
@@ -132,78 +190,83 @@ function sx1509:set_pin_event(pin, direction)
     end
     -- now bitshift the value into the right offset inside the register
     dirvalue = dirvalue << ((pin % 4) * 2)
-    return self:_update_register(reg, "B", function(r) return r | dirvalue end)
+    return self:_update(reg, "B", function(r) return r | dirvalue end)
 end
 
-function sx1509:_update_register(reg, pack_fmt, update)
-    -- read register, apply a function to the result and write it back
-    -- number of bytes to read based on the pack string
-    if not update then
-        return false, "you must supply an update function"
+function sx1509:set_pin_pwm(pin, operation, value)
+    -- get the pwm descriptor
+    local descriptor = self.pwm.descriptors[pin + 1]
+    local register, operations = table.unpack(descriptor)
+    -- validate the the rqeuested operation is supported
+    if operations & operation ~= operation then
+        return false, "unsupprted operation"
     end
-    local pack_size = string.packsize(pack_fmt)
-    local status, buffer = i2c.txn(i2c.tx(self.address, reg), i2c.rx(self.address, pack_size))
-    if not status then
-        return false, "failed to get value from device"
+    -- calculate the number to add to the base address this relies on
+    -- the operations being defined in order in the datasheet and the
+    -- definition of the constants in pwm having a matching set of
+    -- trailing 0s after the bit that defines them
+    offset = 0
+    while operation > 1 do
+        operation = operation >> 1
+        offset = offset + 1
     end
-    -- call update function
-    local newvalue = string.unpack(pack_fmt, buffer)
-    newvalue = update(newvalue)
-    status, buffer, reason =
-    i2c.txn(i2c.tx(self.address, reg, string.pack(pack_fmt, newvalue)))
-    if not status then
-        return false, "unable to set value"
-    end
-    return newvalue
+    register = register + offset
+    -- and finally set the register to the requested value
+    return i2c.txn(i2c.tx(self.address, register, value))
 end
 
 function sx1509:set_pin_debounce(pin, val)
-    local mask = (1 << pin)
-    if (val == false) then
-        return self:_update_register(self.DEBOUNCEB, ">I2", function(r) return r & ~mask end)
-    else
-        return self:_update_register(self.DEBOUNCEB, ">I2", function(r) return r | mask end)
+    local update = function(r)
+        return bit_set(pin, r, val)
     end
+    return self:_update(self.DEBOUNCEB, ">I2", update)
 end
 
 function sx1509:event_status(pin)
-    return self:_get(self.EVENTSTATUS, ">I2", function(r) print(r); return r & (1 << pin) > 0 end)
+    return self:_get(self.EVENTSTATUS, ">I2",
+                     function(r) return r & (1 << pin) > 0 end)
 end
 
 function sx1509:interrupt_status(pin)
-    return self:_get(self.INTERRUPTSOURCE, ">I2", function(r) print(r); return r & (1 << pin) > 0 end)
+    return self:_get(self.INTERRUPTSOURCE, ">I2",
+                     function(r) return r & (1 << pin) > 0 end)
 end
 
 function sx1509:clear_events()
-    he.i2c.txn(he.i2c.tx(self.address, self.EVENTSTATUS, 0xff, 0xff)) --clears eventstatus register, which also clears the interruptsource register
-    he.i2c.txn(he.i2c.tx(self.address, self.INTERRUPTSOURCE, 0xff, 0xff)) --clears eventstatus register, which also clears the interruptsource register
+    -- clears eventstatus register, which also clears the
+    -- interruptsource register
+    i2c.txn(i2c.tx(self.address, self.EVENTSTATUS, 0xff, 0xff))
+    --clears eventstatus register, which also clears the
+    --interruptsource register
+    i2c.txn(i2c.tx(self.address, self.INTERRUPTSOURCE, 0xff, 0xff))
 end
 
--- configure if we want the interrupt and event registers to be autocleared on read from the DATA registers. Autoclear defaults to on
+-- configure if we want the interrupt and event registers to be
+-- autocleared on read from the DATA registers. Autoclear defaults to
+-- on
 function sx1509:set_autoclear(val)
-    if (val == true) then
-        -- 0 is on, oddly
-        return self:_update_register(self.MISC, "B", function(r) return r & ~1 end)
-    else
-        return self:_update_register(self.MISC, "B", function(r) return r | 1 end)
+    local update = function(r)
+        return bit_set(0, r, not val)
     end
+    return self:_update(self.MISC, "B", update)
 end
 
 function sx1509:enable_led_driver(val)
-    if (val == false) then
-        return self:_update_register(self.MISC, "B", function(r) return r & ~0x60 end)
-    else
-        return self:_update_register(self.MISC, "B", function(r) return r | 0x60 end)
+    local update = function(r)
+        if val then
+            return r | 0x60
+        else
+            return r & ~0x60
+        end
     end
+    return self:_update(self.MISC, "B", update)
 end
 
 function sx1509:set_led_driver(pin, val)
-    local mask = (1 << pin)
-    if (val == false) then
-        return self:_update_register(self.LEDDRIVERENABLE, ">I2", function(r) return r & ~mask end)
-    else
-        return self:_update_register(self.LEDDRIVERENABLE, ">I2", function(r) return r | mask end)
+    local update = function(r)
+        return bit_set(pin, r, val)
     end
+    return self:_update(self.LEDDRIVERENABLE, ">I2", update)
 end
 
 function sx1509:set_debounce_rate(rate)
@@ -212,43 +275,39 @@ function sx1509:set_debounce_rate(rate)
 end
 
 function sx1509:read_pin(pin)
-    local res = self:_get(self.DATAB, ">I2")
-    local mask = (1 << pin)
-    if (res & mask) > 1 then
-        return true
-    else
-        return false
-    end
+    return self:_get(self.DATAB, ">I2",
+                     function(r) return (res & (1 << pin)) > 1 end)
 end
 
 function sx1509:write_pin(pin, val)
-    local mask = (1 << pin)
-    if (val == false) then
-        return self:_update_register(self.DATAB, ">I2", function(r) return r & ~mask end)
-    else
-        return self:_update_register(self.DATAB, ">I2", function(r) return r | mask end)
+    local update = function(r)
+        return bit_set(pin, r, val)
     end
+    return self:_update(self.DATAB, ">I2", update)
 end
 
 function sx1509:toggle_pin(pin)
     local mask = (1 << pin)
-    return self:_update_register(self.DATAB, ">I2", function(r) return r ~ mask end)
+    return self:_update(self.DATAB, ">I2", function(r) return r ~ mask end)
 end
 
 --Turns on the internal clock, must be on for PWM/debounce to work
 function sx1509:set_clock(val)
-    if (val == false) then
-        return self:_update_register(self.MISC, "B", function(r) return r & ~0x40 end)
-    else
-        return self:_update_register(self.MISC, "B", function(r) return r | 0x40 end)
+    local update = function(r)
+        if val then
+            return r | 0x40
+        else
+            return r & ~0x40
+        end
     end
+    return self:_update(self.MISC, "B", update)
 end
 
 function sx1509:set_clock(val)
     if not val then
         i2c.txn(i2c.tx(self.address, self.CLOCK, 0x00))
-    else      
-        i2c.txn(i2c.tx(self.address, self.CLOCK, 64))      
+    else
+        i2c.txn(i2c.tx(self.address, self.CLOCK, 0x40))
     end
 end
 
@@ -256,7 +315,8 @@ end
 function sx1509:reset()
     i2c.txn(i2c.tx(self.address, self.RESET, 0x12))
     i2c.txn(i2c.tx(self.address, self.RESET, 0x34))
-    -- zero out the data registers, for some reason they default to high, which we have deemed silly
+    -- zero out the data registers, for some reason they default to
+    -- high, which we have deemed silly
     i2c.txn(i2c.tx(self.address, self.DATAB, 0, 0))
 end
 
@@ -284,9 +344,9 @@ digital:set_pin_debounce(1, true)
 digital:set_debounce_rate(7) -- the max
 
 -- turn off all the LED colors
-i2c.txn(i2c.tx(digital.address, 0x5B, 255))
-i2c.txn(i2c.tx(digital.address, 0x60, 255))
-i2c.txn(i2c.tx(digital.address, 0x65, 255))
+digital:set_pin_pwm(13, pwm.ION, 255)
+digital:set_pin_pwm(14, pwm.ION, 255)
+digital:set_pin_pwm(15, pwm.ION, 255)
 
 while true do --main loop
     now, new_events, events = he.wait{time=5000 + now}
@@ -299,8 +359,8 @@ while true do --main loop
         print("interrupted")
         digital:clear_events()
         -- set the LEDs to a random color
-        i2c.txn(i2c.tx(digital.address, 0x5B, math.random(0, 255)))
-        i2c.txn(i2c.tx(digital.address, 0x60, math.random(0, 255)))
-        i2c.txn(i2c.tx(digital.address, 0x65, math.random(0, 255)))
+        digital:set_pin_pwm(13, pwm.ION, math.random(0, 255))
+        digital:set_pin_pwm(14, pwm.ION, math.random(0, 255))
+        digital:set_pin_pwm(15, pwm.ION, math.random(0, 255))
     end
 end
