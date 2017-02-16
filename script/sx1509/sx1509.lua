@@ -353,7 +353,6 @@ while true do --main loop
     now, new_events, events = he.wait{time=500 + now}
     if new_events then
         -- switch on pin 1 triggered
-        digital:clear_events()
         -- clear the LEDs so they blink off
         digital:set_pin_pwm(13, pwm.ION, 255)
         digital:set_pin_pwm(14, pwm.ION, 255)
@@ -368,6 +367,8 @@ while true do --main loop
         j = (j+5) & 0xff
         k = (k+5) & 0xff
     end
+    -- Clearing all events regardless to work around a firmware bug
+    digital:clear_events()
     digital:set_pin_pwm(13, pwm.ION, i)
     digital:set_pin_pwm(14, pwm.ION, j)
     digital:set_pin_pwm(15, pwm.ION, k)
