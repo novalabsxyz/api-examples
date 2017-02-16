@@ -10,15 +10,40 @@ vcnl4010 = {
 
 
     COMMAND           = 0x80, -- commmand register, table 1
+    PROXIMITY_RATE    = 0x82, -- Proximity sample rate, table 3
     LED_CURRENT       = 0x83, -- LED power register, table 4
     AMBIENTPARAMETER  = 0x84,
     AMBIENTDATA       = 0x85,
     PROXIMITYDATA     = 0x87,
-    PROXINITYADJUST   = 0x8A,
+    INTERRUPT_CONTROL = 0x89, -- interrupt control, table 10
+    LOW_THRESHOLD     = 0x8A,
+    HIGH_THRESHOLD    = 0x8C,
+    INTERRUPT_STATUS  = 0x8E,
+
     MEASUREAMBIENT    = 0x10,
     MEASUREPROXIMITY  = 0x08,
     AMBIENTREADY      = 0x40,
-    PROXIMITYREADY    = 0x20
+    PROXIMITYREADY    = 0x20,
+
+    -- sample rate in measurements/second  See Table 3 in datasheet
+    PROXIMITY_RATE_1_95  = 0,
+    PROXIMITY_RATE_3_95  = 1,
+    PROXIMITY_RATE_7_81  = 2,
+    PROXIMITY_RATE_18_62 = 3,
+    PROXIMITY_RATE_31_25 = 4,
+    PROXIMITY_RATE_62_5  = 5,
+    PROXIMITY_RATE_125   = 6,
+    PROXIMITY_RATE_250   = 7,
+
+    -- number of consecutive measurements above a threshold before an interrupt  See Table 10 in datasheet
+    INTERRUPT_COUNT_1  = 0,
+    INTERRUPT_COUNT_2  = 1,
+    INTERRUPT_COUNT_4  = 2,
+    INTERRUPT_COUNT_8  = 3,
+    INTERRUPT_COUNT_16  = 4,
+    INTERRUPT_COUNT_32  = 5,
+    INTERRUPT_COUNT_64  = 6,
+    INTERRUPT_COUNT_128  = 7
 }
 
 function vcnl4010:new(address)
@@ -65,16 +90,16 @@ function vcnl4010:_get(reg, pack_fmt, convert)
     return string.unpack(pack_fmt, buffer)
 end
 
-function vncl4010:set_led_current(current)
+function vcnl4010:set_led_current(current)
     -- set the LED current, table 4
     if current < 0 or current > 20 then
         return false, "VCNL4010 LED current value should be between 0 and 20"
     end
-    local status = i2c.txn(i2c.tx(self.address, LED_CURRENT, current))
+    local status = i2c.txn(i2c.tx(self.address, self.LED_CURRENT, current))
     return status
 end
 
-local function vncl4010:get_led_current()
+function vcnl4010:get_led_current()
     local status, buffer, reason = i2c.txn(i2c.tx(self.ADDRESS, self.LED_CURRENT), i2c.rx(self.ADDRESS, 1))
     if status == false then
         return false, "failed to get value from device"
@@ -100,7 +125,7 @@ function vcnl4010:read_proximity()
     end
 end
 
-local function vcnl4010:read_ambient()
+function vcnl4010:read_ambient()
     i2c.txn(i2c.tx(self.address, self.COMMAND, self.MEASUREAMBIENT))
     while true do
         local status, buffer, reason = i2c.txn(i2c.tx(self.address, self.COMMAND), i2c.rx(self.address, 1))
@@ -117,28 +142,69 @@ local function vcnl4010:read_ambient()
     end
 end
 
+function vcnl4010:set_proximity_sample_rate(rate)
+    print(rate)
+
+    local status, _, reason = i2c.txn(i2c.tx(self.address, self.PROXIMITY_RATE, rate))
+    local status, _, reason = i2c.txn(i2c.tx(self.address, self.COMMAND, 1))
+    local status, _, reason = i2c.txn(i2c.tx(self.address, self.COMMAND, 3))
+    return status, reason
+end
+
+function vcnl4010:configure_interrupt(sample_type, low, high, count)
+    if sample_type == "proximity" then
+        sample_type = 0
+    elseif sample_type == "ambient" then
+        sample_type = 1
+    else
+        return false, "invalid sample type; must be ambient or proximity"
+    end
+
+    if count < self.INTERRUPT_COUNT_1 or count > self.INTERRUPT_COUNT_128 then
+        return false, "invalid interrupt count"
+    end
+
+    -- set low and high thresholds
+
+    local status, _, reason = i2c.txn(i2c.tx(self.address, self.LOW_THRESHOLD, string.pack(">I2", low)))
+    if not status then
+        return false, "failed to set low threshold register"
+    end
+    
+    status, _, reason = i2c.txn(i2c.tx(self.address, self.HIGH_THRESHOLD, string.pack(">I2", high)))
+    if not status then
+        return false, "failed to set high threshold register"
+    end
+
+    print(count, sample_type)
+    print((count << 5) | 2 | sample_type)
+    status, _, reason = i2c.txn(i2c.tx(self.address, self.INTERRUPT_CONTROL, (count << 5) | 2 | sample_type))
+    if not status then
+        return status, "failed to set interrupt control register"
+    end
+
+    return true
+end
+
+he.interrupt_cfg("int0", "e", 10)
 -- construct the sensor
 sensor = assert(vcnl4010:new())
+assert(sensor:set_led_current(20)) -- max current, 200ma
+assert(sensor:set_proximity_sample_rate(sensor.PROXIMITY_RATE_250)) --sample 250 times a second
+assert(sensor:configure_interrupt("proximity", 1000, 3000, sensor.INTERRUPT_COUNT_8)) -- if we see eight sensor readings lower than 1000 or higher than 3000, throw interrupt
+i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff)) -- clear the interrupt register
+
 -- get current time
 local now = he.now()
 while true do
-    -- turn on the IR LED
-    sensor:set_led_current(20) -- max current, 200ma
-    -- take readings
-    local ambient = assert(sensor:read_ambient())
-    local proximity = assert(sensor:read_proximity())
-
-    -- send ambient light level as a float "f" on port "l"
-    he.send("l", now, "f", ambient)
-    -- send proximity as a float "f" on port "pr"
-    he.send("pr", now, "f", proximity)
-
-    -- Un-comment the following line to see results in semi-hosted mode
-    -- print(ambient, proximity)
-
-    -- turn the IR LED back off
-    sensor:set_led_current(0) -- max current, 200ma
-
-    -- wait for SAMPLE_INTERVAL time
-    now = he.wait{time=now + SAMPLE_INTERVAL}
+    now, new_events, events = he.wait{time=now + SAMPLE_INTERVAL}
+    if new_events then
+        --print("interrupt!")
+        status, buffer, reason = i2c.txn(i2c.tx(sensor.address, sensor.PROXIMITYDATA), i2c.rx(sensor.address, 2))
+        dist = string.unpack(">I2", buffer)
+        print("TOO CLOSE", dist)
+        he.send_str("proximity", he.now(), "TOO CLOSE")
+        now, new_events, events = he.wait{time=he.now() + 1000} -- chill for a second
+        i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff)) -- clear the interrupt register
+    end
 end
