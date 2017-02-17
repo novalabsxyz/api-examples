@@ -112,9 +112,7 @@ end
 function vcnl4010:_update(reg, pack_fmt, update)
     -- read register, apply a function to the result and write it back
     -- number of bytes to read based on the pack string
-    if not update then
-        assert(false, "you must supply an update function")
-    end
+    assert(update, "you must supply an update function")
     local pack_size = string.packsize(pack_fmt)
     local status, buffer =
         i2c.txn(i2c.tx(self.address, reg), i2c.rx(self.address, pack_size))
@@ -134,9 +132,7 @@ end
 
 function vcnl4010:set_led_current(current)
     -- set the LED current, table 4
-    if current < 0 or current > 20 then
-        assert(false, "VCNL4010 LED current value should be between 0 and 20")
-    end
+    assert(current < 0 or current > 20, "VCNL4010 LED current value should be between 0 and 20")
     local status = i2c.txn(i2c.tx(self.address, self.LED_CURRENT, current))
     return status
 end
@@ -186,7 +182,7 @@ end
 function vcnl4010:set_ambient_sample_rate(rate)
     local status = self:_update(self.AMBIENT_RATE, "B", function(r) return r | (rate << 4) end)
     if not status then
-        return false, "unable to set value"
+        return false, "unable to set ambient sample rate"
     end
     -- enable self sampling and ambient interrupts (third and first bits)
     return self:_update(self.COMMAND, "B", function(r) return r | 5 end)
@@ -195,7 +191,7 @@ end
 function vcnl4010:set_proximity_sample_rate(rate)
     local status, _, reason = i2c.txn(i2c.tx(self.address, self.PROXIMITY_RATE, rate))
     if not status then
-        return false, "unable to set value"
+        return false, "unable to proximity sample rate"
     end
     -- enable self sampling and proximity interrupts (two low bits)
     return self:_update(self.COMMAND, "B", function(r) return r | 3 end)
@@ -210,14 +206,13 @@ function vcnl4010:get_interrupt_status()
 end
 
 function vcnl4010:configure_interrupt(enable, sample_type, low, high, count)
-    if sample_type ~= self.PROXIMITY_INTERRUPT and
-       sample_type ~= self.AMBIENT_INTERRUPT then
-        assert(false, "invalid interrupt type; must be AMBIENT_INTERRUPT or PROXIMITY_INTERRUPT")
-    end
+    assert(sample_type ~= self.PROXIMITY_INTERRUPT and
+      sample_type ~= self.AMBIENT_INTERRUPT,
+      "invalid interrupt type; must be AMBIENT_INTERRUPT or PROXIMITY_INTERRUPT")
 
-    if count < self.INTERRUPT_COUNT_1 or count > self.INTERRUPT_COUNT_128 then
-        assert(false, "invalid interrupt count")
-    end
+    assert(count < self.INTERRUPT_COUNT_1 or
+      count > self.INTERRUPT_COUNT_128,
+      "invalid interrupt count")
 
     -- set low and high thresholds
     local status, _, reason = i2c.txn(i2c.tx(self.address, self.LOW_THRESHOLD, string.pack(">I2", low)))
@@ -251,7 +246,7 @@ assert(sensor:set_ambient_sample_rate(sensor.AMBIENT_RATE_2)) --sample 2 times a
 -- if we see eight proximity readings lower than 2500 or higher than 3500, throw interrupt
 assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3500, sensor.INTERRUPT_COUNT_8))
 -- if we see two light readings lower than 10 or higher than 5000, throw interrupt
---assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
+-assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
  -- clear the interrupt register
 i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 
