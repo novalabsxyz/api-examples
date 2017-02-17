@@ -15,7 +15,7 @@ bme280 = {
     CTRL_HUM    = 0xF2,
     CTRL_MEAS   = 0xF4,
     CONFIG      = 0xF5,
-    CTRL_MEAS_MODE_SLEEP = 0x00,
+    CTRL_MEAS_MODE_SLEEP  = 0x00,
     CTRL_MEAS_MODE_FORCED = 0x01,
     CTRL_MEAS_MODE_NORMAL = 0x03,
 
@@ -54,46 +54,17 @@ function bme280:new(address)
     setmetatable(o, self)
     self.__index = self
     -- Check that the sensor is connected
-    status, reason = o:is_connected()
+    local status, reason = o:is_connected()
     if not status then
         return status, reason
     end
-    return o:calibrate()
-end
-
-
-function bme280:calibrate()
-    -- Configure sampling rates, by setting humidity first
-    -- Datasheet section 7.4.3
-    local status, buffer =
-        i2c.txn(i2c.tx(self.address, self.CTRL_HUM, self.OVERSAMPLE_X16),
-                i2c.rx(self.address, 1))
-
-    if not (status and self.OVERSAMPLE_X16 == string.unpack("B", buffer)) then
-        return false, "failed to set humidity oversampling"
-    end
-
-    -- Set up oversampling for temp and pressure which also commits the above
-    -- Datasheet section 7.4.5
-    measure_mode =
-        bme280.OVERSAMPLE_X16 << 5 -- temp data oversampling
-        | bme280.OVERSAMPLE_X16 << 2 -- pressure data oversampling
-        | bme280.CTRL_MEAS_MODE_NORMAL
-    local status, buffer =
-        i2c.txn(i2c.tx(self.address, bme280.CTRL_MEAS, measure_mode),
-                i2c.rx(self.address, 1))
-    if (not status and measure_mode == string.unpack("B", buffer)) then
-        return false, "failed to configure oversampling"
-    end
-
-    -- And read the calibration data
-    local status, result = pcall(function() return self:_get_calibration() end)
+    local status, reason = o:calibrate()
     if not status then
-        return status, result
+        return status, reason
     end
-    self.calibration = result
-    return self
+    return o
 end
+
 
 function bme280:is_connected()
     local result = self:_get(bme280.ID, "B")
@@ -103,6 +74,23 @@ function bme280:is_connected()
     return true
 end
 
+function bme280:calibrate()
+    -- Set oversampling for pressure to get readings quicker
+    -- configure measure mode normal
+    local measure_mode = self.OVERSAMPLE_X16 << 2 | self.CTRL_MEAS_MODE_NORMAL
+    local status, result = i2c.txn(i2c.tx(self.address, self.CTRL_MEAS, measure_mode),
+                                   i2c.rx(self.address, 1))
+    if not status then
+        return false, "failed to calibrate pressure"
+    end
+    -- Read calibration data
+    local status, result = pcall(function() return self:_get_calibration() end)
+    if not status then
+        return status, result
+    end
+    self.calibration = result
+    return true
+end
 
 function bme280:read_temperature()
     -- read the temperature fragments
@@ -207,12 +195,9 @@ end
 
 function bme280:_get_calibration()
     --read calibration data from the BME
-    local function _get(reg, pack)
-        result, reason = self:_get(reg, pack)
-        if not result then
-            error(reason)
-        end
-        return result
+    local function _get(reg, pack, convert)
+        result, reason = self:_get(reg, pack, convert)
+        return assert(result, reason)
     end
     return {
         --temperature values
@@ -254,10 +239,7 @@ while true do
     local humidity = assert(sensor:read_humidity(calibration_temp))
     local pressure = assert(sensor:read_pressure(calibration_temp))
 
-    -- turn power off to save battery
-    he.power_set(false)
-
-    -- send readings
+    send readings
     he.send("t", now, "f", temperature) --send temperature, as a float "f" on port "t"
     he.send("h", now, "f", humidity) --send humidity as a float "f" on on port "h"
     he.send("p", now, "f", pressure) --send pressure as a flot "f" on port "p"
@@ -267,6 +249,4 @@ while true do
 
     -- sleep until next time
     now = he.wait{time=now + SAMPLE_INTERVAL}
-    -- done sleeping, turn power back on
-    he.power_set(true)
 end
