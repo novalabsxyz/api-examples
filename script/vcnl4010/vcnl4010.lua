@@ -11,7 +11,7 @@ vcnl4010 = {
     COMMAND           = 0x80, -- commmand register, table 1
     PROXIMITY_RATE    = 0x82, -- Proximity sample rate, table 3
     LED_CURRENT       = 0x83, -- LED power register, table 4
-    AMBIENTPARAMETER  = 0x84,
+    AMBIENT_RATE      = 0x84,
     AMBIENTDATA       = 0x85,
     PROXIMITYDATA     = 0x87,
     INTERRUPT_CONTROL = 0x89, -- interrupt control, table 10
@@ -34,6 +34,16 @@ vcnl4010 = {
     PROXIMITY_RATE_125   = 6,
     PROXIMITY_RATE_250   = 7,
 
+    -- sample rate in measurements/second  See Table 5 in datasheet
+    AMBIENT_RATE_1       = 0,
+    AMBIENT_RATE_2       = 1,
+    AMBIENT_RATE_3       = 2,
+    AMBIENT_RATE_4       = 3,
+    AMBIENT_RATE_5       = 4,
+    AMBIENT_RATE_6       = 5,
+    AMBIENT_RATE_8       = 6,
+    AMBIENT_RATE_10      = 7,
+
     -- number of consecutive measurements above a threshold before an interrupt  See Table 10 in datasheet
     INTERRUPT_COUNT_1    = 0,
     INTERRUPT_COUNT_2    = 1,
@@ -46,7 +56,7 @@ vcnl4010 = {
 
     -- types of interrupt
     PROXIMITY_INTERRUPT = 0,
-    AMBIENT_INTERRUPT   = 0,
+    AMBIENT_INTERRUPT   = 1,
 
     -- table 15
     PROXIMITY_READY_INTERRUPT = 8,
@@ -173,11 +183,22 @@ function vcnl4010:read_ambient()
     end
 end
 
+function vcnl4010:set_ambient_sample_rate(rate)
+    local status = self:_update(self.AMBIENT_RATE, "B", function(r) return r | (rate << 4) end)
+    if not status then
+        return false, "unable to set value"
+    end
+    -- enable self sampling and ambient interrupts (third and first bits)
+    return self:_update(self.COMMAND, "B", function(r) return r | 5 end)
+end
+
 function vcnl4010:set_proximity_sample_rate(rate)
     local status, _, reason = i2c.txn(i2c.tx(self.address, self.PROXIMITY_RATE, rate))
-    -- enable self sampling and proximity interrupts
-    local status, _, reason = i2c.txn(i2c.tx(self.address, self.COMMAND, 3))
-    return status, reason
+    if not status then
+        return false, "unable to set value"
+    end
+    -- enable self sampling and proximity interrupts (two low bits)
+    return self:_update(self.COMMAND, "B", function(r) return r | 3 end)
 end
 
 function vcnl4010:get_interrupt_status()
@@ -226,8 +247,11 @@ he.interrupt_cfg("int0", "f", 10)
 sensor = assert(vcnl4010:new())
 assert(sensor:set_led_current(20)) -- max current, 200ma
 assert(sensor:set_proximity_sample_rate(sensor.PROXIMITY_RATE_250)) --sample 250 times a second
- -- if we see eight sensor readings lower than 1000 or higher than 3000, throw interrupt
-assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3000, sensor.INTERRUPT_COUNT_8))
+assert(sensor:set_ambient_sample_rate(sensor.AMBIENT_RATE_2)) --sample 2 times a second
+-- if we see eight proximity readings lower than 2500 or higher than 3500, throw interrupt
+assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3500, sensor.INTERRUPT_COUNT_8))
+-- if we see two light readings lower than 10 or higher than 5000, throw interrupt
+--assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
  -- clear the interrupt register
 i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 
@@ -235,12 +259,22 @@ i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 local now = he.now()
 while true do
     now, new_events, events = he.wait{time=now + SAMPLE_INTERVAL}
+            --print("ambient", sensor:read_ambient())
     if new_events then
+        local interrupt_type = sensor:_get(sensor.INTERRUPT_CONTROL, "B", function(r) return r & 1 end)
         status = sensor:get_interrupt_status()
         if status.low_threshold then
-            print("TOO FAR", sensor:read_proximity())
+            if interrupt_type == 1 then
+                print("TOO DARK", sensor:read_ambient())
+            else
+                print("TOO FAR", sensor:read_proximity())
+            end
         elseif status.high_threshold then
-            print("TOO CLOSE", sensor:read_proximity())
+            if interrupt_type == 1 then
+                print("TOO BRIGHT", sensor:read_ambient())
+            else
+                print("TOO CLOSE", sensor:read_proximity())
+            end
         end
         --he.send_str("proximity", he.now(), "TOO CLOSE")
         now, new_events, events = he.wait{time=he.now() + 1000} -- chill for a second
