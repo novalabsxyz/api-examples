@@ -132,7 +132,7 @@ end
 
 function vcnl4010:set_led_current(current)
     -- set the LED current, table 4
-    assert(current < 0 or current > 20, "VCNL4010 LED current value should be between 0 and 20")
+    assert(current >= 0 or current <= 20, "VCNL4010 LED current value should be between 0 and 20")
     local status = i2c.txn(i2c.tx(self.address, self.LED_CURRENT, current))
     return status
 end
@@ -206,12 +206,12 @@ function vcnl4010:get_interrupt_status()
 end
 
 function vcnl4010:configure_interrupt(enable, sample_type, low, high, count)
-    assert(sample_type ~= self.PROXIMITY_INTERRUPT and
-      sample_type ~= self.AMBIENT_INTERRUPT,
+    assert(sample_type == self.PROXIMITY_INTERRUPT or
+      sample_type == self.AMBIENT_INTERRUPT,
       "invalid interrupt type; must be AMBIENT_INTERRUPT or PROXIMITY_INTERRUPT")
 
-    assert(count < self.INTERRUPT_COUNT_1 or
-      count > self.INTERRUPT_COUNT_128,
+    assert(count >= self.INTERRUPT_COUNT_1 and
+      count <= self.INTERRUPT_COUNT_128,
       "invalid interrupt count")
 
     -- set low and high thresholds
@@ -244,9 +244,9 @@ assert(sensor:set_led_current(20)) -- max current, 200ma
 assert(sensor:set_proximity_sample_rate(sensor.PROXIMITY_RATE_250)) --sample 250 times a second
 assert(sensor:set_ambient_sample_rate(sensor.AMBIENT_RATE_2)) --sample 2 times a second
 -- if we see eight proximity readings lower than 2500 or higher than 3500, throw interrupt
-assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3500, sensor.INTERRUPT_COUNT_8))
+--assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3500, sensor.INTERRUPT_COUNT_8))
 -- if we see two light readings lower than 10 or higher than 5000, throw interrupt
--assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
+assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
  -- clear the interrupt register
 i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 
