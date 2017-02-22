@@ -57,24 +57,25 @@ function ina219:new(address)
     -- We use a simple lua object system as defined
     -- https://www.lua.org/pil/16.1.html
     -- construct the object table
-    local o = { address = address }
+    local o = { address = address, cal_value = 0, current_divider_ma = 0, power_divider_mw = 0 }
     -- ensure that the "class" is the metatable
     setmetatable(o, self)
     -- and that the metatable's index function is set
     -- Refer to https://www.lua.org/pil/16.1.html
     self.__index = self
-    -- Check that the sensor is connected
+    -- Set initial calibration of the sensor
     status, reason = o:is_connected()
     if not status then
         return status, reason
     end
+    o:set_calibration_32v_2a()
     return o
 end
 
 function ina219:is_connected()
     -- not sure what better to do here?
-    local result = self:set_calibration_32v_2a()
-    if not (self.CAL_VALUE > 0) then
+    local result = self:_get(self.REG_CURRENT, ">H")
+    if not result then
         return false, "could not locate device"
     end
     return true
@@ -117,7 +118,7 @@ function ina219:_update(reg, pack_fmt, update)
 end
 
 function ina219:set_calibration_32v_2a() --default
-    self.cal_value= 4096
+    self.cal_value = 4096
     self.current_divider_ma = 10
     self.power_divider_mw = 2
     self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
@@ -126,7 +127,7 @@ function ina219:set_calibration_32v_2a() --default
 end
 
 function ina219:set_calibration_32v_1a()
-    self.cal_value= 10240
+    self.cal_value = 10240
     self.current_divider_ma = 25
     self.power_divider_mw = 1
     self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
@@ -135,7 +136,7 @@ function ina219:set_calibration_32v_1a()
 end
 
 function ina219:set_calibration_16v_400ma()
-    self.cal_value= 8192
+    self.cal_value = 8192
     self.current_divider_ma = 20
     self.power_divider_mw = 1
     self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
