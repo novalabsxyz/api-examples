@@ -3,7 +3,8 @@
 i2c = he.i2c
 
 SAMPLE_INTERVAL = 60000 -- 1 minute
-INTERRUPT_TYPE = "ambient" -- can also be "ambient"
+INTERRUPT_TYPE = "proximity" -- can also be "ambient"
+LOOP=true -- should we enter the sampling loop or go into interactive mode
 
 vcnl4010 = {
     DEFAULT_ADDRESS   = 0x13,
@@ -155,7 +156,8 @@ function vcnl4010:read_proximity()
     while true do
         local reg = self:_get(self.COMMAND, "B")
         if reg & self.PROXIMITYREADY then
-            return self:_get(self.PROXIMITYDATA, ">I2")
+            local res = self:_get(self.PROXIMITYDATA, ">I2")
+            return res
         end
         he.wait{time=1 + he.now()}
     end
@@ -174,7 +176,8 @@ function vcnl4010:read_ambient()
     while true do
         local reg = self:_get(self.COMMAND, "B")
         if reg & self.AMBIENTREADY then
-            return self:_get(self.AMBIENTDATA, ">I2")
+            local res = self:_get(self.AMBIENTDATA, ">I2")
+            return res
         end
         he.wait{time=1 + he.now()}
     end
@@ -259,7 +262,7 @@ i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 
 -- get current time
 local now = he.now()
-while true do
+while LOOP do
     now, new_events, events = he.wait{time=now + SAMPLE_INTERVAL}
     -- transmit samples to Helium
     local prox = sensor:read_proximity()
