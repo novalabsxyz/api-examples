@@ -3,6 +3,7 @@
 i2c = he.i2c
 
 SAMPLE_INTERVAL = 60000 -- 1 minute
+INTERRUPT_TYPE = "ambient" -- can also be "ambient"
 
 vcnl4010 = {
     DEFAULT_ADDRESS   = 0x13,
@@ -243,10 +244,16 @@ sensor = assert(vcnl4010:new())
 assert(sensor:set_led_current(20)) -- max current, 200ma
 assert(sensor:set_proximity_sample_rate(sensor.PROXIMITY_RATE_250)) --sample 250 times a second
 assert(sensor:set_ambient_sample_rate(sensor.AMBIENT_RATE_2)) --sample 2 times a second
--- if we see eight proximity readings lower than 2500 or higher than 3500, throw interrupt
---assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 2500, 3500, sensor.INTERRUPT_COUNT_8))
--- if we see two light readings lower than 10 or higher than 5000, throw interrupt
-assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
+if INTERRUPT_TYPE == "proximity" then
+    -- if we see eight proximity readings lower than 1000 or higher than 3500, throw interrupt
+    -- 1000 is actually lower than the device reports, so we effectively are disabling the lower limit (when something is too far away)
+    assert(sensor:configure_interrupt(true, sensor.PROXIMITY_INTERRUPT, 1000, 3500, sensor.INTERRUPT_COUNT_8))
+elseif INTERRUPT_TYPE == "ambient" then
+    -- if we see two light readings lower than 10 or higher than 5000, throw interrupt
+    assert(sensor:configure_interrupt(true, sensor.AMBIENT_INTERRUPT, 10, 5000, sensor.INTERRUPT_COUNT_2))
+else
+    assert(false, "INTERRUPT_TYPE must be ambient or proximity")
+end
  -- clear the interrupt register
 i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 
@@ -254,25 +261,33 @@ i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff))
 local now = he.now()
 while true do
     now, new_events, events = he.wait{time=now + SAMPLE_INTERVAL}
-            --print("ambient", sensor:read_ambient())
+    -- transmit samples to Helium
+    local prox = sensor:read_proximity()
+    local amb = sensor:read_ambient()
+    he.send("pr", now, "I", prox)
+    he.send("l", now, "I", amb)
     if new_events then
         local interrupt_type = sensor:_get(sensor.INTERRUPT_CONTROL, "B", function(r) return r & 1 end)
         status = sensor:get_interrupt_status()
+        -- figure out what kind of interrupt it was and log it
         if status.low_threshold then
             if interrupt_type == 1 then
-                print("TOO DARK", sensor:read_ambient())
+                print("TOO DARK", amb)
+                he.send("l_int", now, "b", false)
             else
-                print("TOO FAR", sensor:read_proximity())
+                print("TOO FAR", prox)
+                he.send("pr_int", now, "b", false)
             end
         elseif status.high_threshold then
             if interrupt_type == 1 then
-                print("TOO BRIGHT", sensor:read_ambient())
+                print("TOO BRIGHT", amb)
+                he.send("l_int", now, "b", true)
             else
-                print("TOO CLOSE", sensor:read_proximity())
+                print("TOO CLOSE", prox)
+                he.send("pr_int", now, "b", true)
             end
         end
-        --he.send_str("proximity", he.now(), "TOO CLOSE")
-        now, new_events, events = he.wait{time=he.now() + 1000} -- chill for a second
+        now, new_events, events = he.wait{time=he.now() + 5000} -- chill for a second
         i2c.txn(i2c.tx(sensor.address, sensor.INTERRUPT_STATUS, 0xff)) -- clear the interrupt register
     end
 end
