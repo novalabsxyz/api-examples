@@ -239,7 +239,7 @@ while true do
     local humidity = assert(sensor:read_humidity(calibration_temp))
     local pressure = assert(sensor:read_pressure(calibration_temp))
 
-    send readings
+    -- send readings
     he.send("t", now, "f", temperature) --send temperature, as a float "f" on port "t"
     he.send("h", now, "f", humidity) --send humidity as a float "f" on on port "h"
     he.send("p", now, "f", pressure) --send pressure as a flot "f" on port "p"
