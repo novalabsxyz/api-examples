@@ -8,10 +8,6 @@ ina219 = {
     DEFAULT_ADDRESS                  = 0x40,
     READ_ADDRESS                     = 0x01,
 
-    CAL_VALUE                        = 0,
-    CURRENT_DIVIDER_MA               = 0,
-    POWER_DIVIDER_MW                 = 0,
-
     REG_CONFIG                       = 0x00,
     REG_SHUNTVOLTAGE                 = 0x01,
     REG_BUSVOLTAGE                   = 0x02,
@@ -121,28 +117,28 @@ function ina219:_update(reg, pack_fmt, update)
 end
 
 function ina219:set_calibration_32v_2a() --default
-    self.CAL_VALUE= 4096
-    self.CURRENT_DIVIDER_MA = 10
-    self.POWER_DIVIDER_MW = 2
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.CAL_VALUE end) -- set calibration register
+    self.cal_value= 4096
+    self.current_divider_ma = 10
+    self.power_divider_mw = 2
+    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
     self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
 end
 
 function ina219:set_calibration_32v_1a()
-    self.CAL_VALUE= 10240
-    self.CURRENT_DIVIDER_MA = 25
-    self.POWER_DIVIDER_MW = 1
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.CAL_VALUE end) -- set calibration register
+    self.cal_value= 10240
+    self.current_divider_ma = 25
+    self.power_divider_mw = 1
+    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
     self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
 end
 
 function ina219:set_calibration_16v_400ma()
-    self.CAL_VALUE= 8192
-    self.CURRENT_DIVIDER_MA = 20
-    self.POWER_DIVIDER_MW = 1
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.CAL_VALUE end) -- set calibration register
+    self.cal_value= 8192
+    self.current_divider_ma = 20
+    self.power_divider_mw = 1
+    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_16V | self.CONFIG_GAIN_1_40MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
     self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
 end
@@ -158,9 +154,9 @@ function ina219:get_shunt_voltage()
 end
 
 function ina219:get_current()
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.CAL_VALUE end) --set calibration register first as it sometimes gets reset
+    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) --set calibration register first as it sometimes gets reset
     local result = self:_get(self.REG_CURRENT, ">H")
-    return result / self.CURRENT_DIVIDER_MA --milliamps
+    return result / self.current_divider_ma --milliamps
 end
 
 -- construct sensor on default address
