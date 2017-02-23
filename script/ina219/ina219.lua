@@ -2,7 +2,7 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 60000 -- 1 minute
+SAMPLE_INTERVAL = 6000 -- 10 seconds
 
 ina219 = {
     DEFAULT_ADDRESS                  = 0x40,
@@ -118,45 +118,40 @@ function ina219:_update(reg, pack_fmt, update)
 end
 
 function ina219:set_calibration_32v_2a() --default
-    self.cal_value = 4096
+    self.cal_value = 410
     self.current_divider_ma = 10
     self.power_divider_mw = 2
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
 end
 
 function ina219:set_calibration_32v_1a()
-    self.cal_value = 10240
+    self.cal_value = 1024
     self.current_divider_ma = 25
     self.power_divider_mw = 1
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
 end
 
 function ina219:set_calibration_16v_400ma()
-    self.cal_value = 8192
+    self.cal_value = 819
     self.current_divider_ma = 20
     self.power_divider_mw = 1
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
     local config = self.CONFIG_BVOLTAGERANGE_16V | self.CONFIG_GAIN_1_40MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, "I2", function(r) return r | config end) --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
 end
 
-function ina219:get_bus_voltage()
-    local result = self:_get(self.REG_BUSVOLTAGE, ">H")
+function ina219:get_voltage()
+    local result = self:_get(self.REG_BUSVOLTAGE, ">i2")
     return ((result >> 3) * 4) * 0.001 --volts
 end
 
-function ina219:get_shunt_voltage()
-    local result = self:_get(self.REG_SHUNTVOLTAGE, ">H")
-    return result * 0.01 --millivolts
-end
-
 function ina219:get_current()
-    self:_update(self.REG_CALIBRATION, "I2", function(r) return r | self.cal_value end) --set calibration register first as it sometimes gets reset
-    local result = self:_get(self.REG_CURRENT, ">H")
+    self:_update(self.REG_CALIBRATION, ">i2", function(r) return self.cal_value end) --set calibration register first as it sometimes gets reset
+    local result = self:_get(self.REG_CURRENT, ">i2")
     return result / self.current_divider_ma --milliamps
 end
 
@@ -166,17 +161,15 @@ sensor = assert(ina219:new())
 -- get current time
 local now = he.now()
 while true do --main loop
-    local shunt_voltage = assert(sensor:get_shunt_voltage()) --mV
-    local bus_voltage = assert(sensor:get_bus_voltage()) --V
+    local voltage = assert(sensor:get_voltage()) --V
     local current = assert(sensor:get_current()) --mA
 
     -- send readings
-    he.send("sv", now, "f", shunt_voltage) --send shunt voltage, as a float "f" on port "sv"
-    he.send("bv", now, "f", bus_voltage) --send bus voltage as a float "f" on on port "bv"
+    he.send("v", now, "f", voltage) --send voltage as a float "f" on on port "v"
     he.send("c", now, "f", current) --send current as a float "f" on port "c"
 
     -- Un-comment this line to see sampled values in semi-hosted mode
-    print(shunt_voltage, bus_voltage, current)
+    print(voltage, current)
 
     -- sleep until next time
     now = he.wait{time=now + SAMPLE_INTERVAL}
