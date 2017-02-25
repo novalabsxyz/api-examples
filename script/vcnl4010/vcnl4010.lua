@@ -4,7 +4,7 @@ i2c = he.i2c
 
 SAMPLE_INTERVAL = 60000 -- 1 minute
 INTERRUPT_TYPE = "proximity" -- can also be "ambient"
-LOOP=true -- should we enter the sampling loop or go into interactive mode
+LOOP = true -- should we enter the sampling loop or go into interactive mode
 
 vcnl4010 = {
     DEFAULT_ADDRESS   = 0x13,
