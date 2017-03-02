@@ -2,7 +2,7 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 60 -- 1 minute
+SAMPLE_INTERVAL = 50 -- 1 minute
 
 vl53l0x = {
     DEFAULT_ADDRESS                             = 0x29,
@@ -604,7 +604,7 @@ function vl53l0x:read_range_continuous_millimeters()
 
   -- assumptions: Linearity Corrective Gain is 1000 (default)
   -- fractional ranging is not enabled
-  local range = self:_get(self.RESULT_RANGE_STATUS, ">I2", function(r) return r + 10 end)
+  local range = self:_get(self.RESULT_RANGE_STATUS + 10, ">I2", function(r) return r  end)
 
   self:_set(self.SYSTEM_INTERRUPT_CLEAR, "B", 0x01)
 
@@ -624,7 +624,7 @@ sensor:start_continuous()
 -- get current time
 local now = he.now()
 while true do --main loop
-    print(sensor:read_range_continuous_millimeters())
+    print("proximity", now, "i", sensor:read_range_continuous_millimeters() / 25.4)
     -- sleep until next time
     now = he.wait{time=now + SAMPLE_INTERVAL}
 end
