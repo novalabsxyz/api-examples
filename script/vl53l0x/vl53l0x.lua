@@ -2,7 +2,7 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 50 -- 1 minute
+SAMPLE_INTERVAL = 1000 -- 1 minute
 
 vl53l0x = {
     DEFAULT_ADDRESS                             = 0x29,
@@ -127,29 +127,29 @@ end
 
 function vl53l0x:init()
     --intialize sensor using sequence based on STM sample code
-    self:_update(0x88, "B", function(r) return 0x00 end)
-    self:_update(0x80, "B", function(r) return 0x01 end)
-    self:_update(0xFF, "B", function(r) return 0x01 end)
-    self:_update(0x00, "B", function(r) return 0x00 end)
+    self:_set(0x88, "B", 0x00)
+    self:_set(0x80, "B", 0x01 )
+    self:_set(0xFF, "B", 0x01)
+    self:_set(0x00, "B", 0x00)
     self.stop_variable = self:_get(0x91, "B")
-    self:_update(0x00, "B", function(r) return 0x01 end)
-    self:_update(0xFF, "B", function(r) return 0x00 end)
-    self:_update(0x80, "B", function(r) return 0x00 end)
+    self:_set(0x00, "B", 0x01)
+    self:_set(0xFF, "B", 0x00)
+    self:_set(0x80, "B", 0x00)
 
     --disable SIGNAL_RATE_MSRC (bit 1) and SIGNAL_RATE_PRE_RANGE (bit 4) limit checks
-    self:_update(self.MSRC_CONFIG_CONTROL, "B", function(r) return r | 0x12 end)    
+    self:_set(self.MSRC_CONFIG_CONTROL, "B", 0x12)
     self:set_signal_rate_limit(0.25)
 
-    self:_update(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) return 0xFF end)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", 0xFF)
     local spad_count, spad_type_is_aperture = self:get_spad_info()
 
     local ref_spad_map = {self:_get(self.GLOBAL_CONFIG_SPAD_ENABLES_REF_0, "BBBBBB")}
     table.remove(ref_spad_map, 7) --annoying string.unpack thing which adds something to the end of the array
 
-    self:_update(0xFF, "B", function(r) return 0x01 end)
-    self:_update(self.DYNAMIC_SPAD_REF_EN_START_OFFSET, "B", function(r) return 0x00 end)
-    self:_update(self.DYNAMIC_SPAD_NUM_REQUESTED_REF_SPAD, "B", function(r) return 0x2C end)
-    self:_update(0xFF, "B", function(r) return 0x00 end)
+    self:_set(0xFF, "B", 0x01)
+    self:_set(self.DYNAMIC_SPAD_REF_EN_START_OFFSET, "B", 0x00)
+    self:_set(self.DYNAMIC_SPAD_NUM_REQUESTED_REF_SPAD, "B", 0x2C)
+    self:_set(0xFF, "B", 0x00)
 
     first_spad_to_enable = spad_type_is_aperture
     spads_enabled = 0
@@ -264,9 +264,9 @@ function vl53l0x:init()
     self:_set(0x80, "B",  0x00)
 
 
-    self:_update(self.SYSTEM_INTERRUPT_CONFIG_GPIO, "B", function(r) return 0x04 end)
+    self:_set(self.SYSTEM_INTERRUPT_CONFIG_GPIO, "B", 0x04)
     self:_update(self.GPIO_HV_MUX_ACTIVE_HIGH, "B", function(r) return r & ~0x10 end)
-    self:_update(self.SYSTEM_INTERRUPT_CLEAR, "B", function(r) return 0x01 end)
+    self:_set(self.SYSTEM_INTERRUPT_CLEAR, "B", 0x01)
 
     local measurement_timing_budget_us = self:get_measurement_timing_budget()
 
@@ -274,24 +274,24 @@ function vl53l0x:init()
     -- "Disable MSRC and TCC by default"
     -- MSRC = Minimum Signal Rate Check
     -- TCC = Target CentreCheck
-    self:_update(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) return 0xE8 end)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", 0xE8)
 
     -- "Recalculate timing budget"
     self:set_measurement_timing_budget(measurement_timing_budget_us);
 
 
-    self:_update(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) return 0x01 end)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) 0x01)
     if not self:perform_single_ref_calibration(0x40) then
         return false
     end
 
-    self:_update(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) return 0x02 end)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) 0x02)
     if not self:perform_single_ref_calibration(0x00) then
         return false
     end
 
     -- restore config
-    self:_update(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) return 0xE8 end)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", 0xE8)
 
     return true
 end
@@ -307,16 +307,16 @@ function vl53l0x:set_signal_rate_limit(limit_mcps)
 end
 
 function vl53l0x:get_spad_info()
-    self:_update(0x80, "B", function(r) return 0x01 end)
-    self:_update(0xFF, "B", function(r) return 0x01 end)    
-    self:_update(0x00, "B", function(r) return 0x00 end)
-    self:_update(0xFF, "B", function(r) return 0x06 end)
+    self:_set(0x80, "B", 0x01)
+    self:_set(0xFF, "B", 0x01)    
+    self:_set(0x00, "B", 0x00)
+    self:_set(0xFF, "B", 0x06)
     self:_update(0x83, "B", function(r) return r | 0x04 end)
-    self:_update(0xFF, "B", function(r) return 0x07 end)
-    self:_update(0x81, "B", function(r) return 0x01 end)
-    self:_update(0x80, "B", function(r) return 0x01 end)
-    self:_update(0x94, "B", function(r) return 0x6b end)
-    self:_update(0x83, "B", function(r) return 0x00 end)
+    self:_set(0xFF, "B", 0x07)
+    self:_set(0x81, "B", 0x01)
+    self:_set(0x80, "B", 0x01)
+    self:_set(0x94, "B", 0x6B)
+    self:_set(0x83, "B", 0x00)
     local now = he.now()
     while self:_get(0x83, "B") == 0x00 do
         if self:check_timeout(now) then
@@ -324,19 +324,19 @@ function vl53l0x:get_spad_info()
         end
         he.wait{time=he.now() + 1}
     end
-    self:_update(0x83, "B", function(r) return 0x01 end)
+    self:_set(0x83, "B", 0x01)
 
     local tmp = self:_get(0x92, "B")
     count = tmp & 0x7f
     type_is_aperture = (tmp >> 7) & 0x01
 
-    self:_update(0x81, "B", function(r) return 0x00 end)
-    self:_update(0xFF, "B", function(r) return 0x06 end)
+    self:_set(0x81, "B", 0x00)
+    self:_set(0xFF, "B", 0x06)
     self:_update(0x83, "B", function(r) return r & ~0x04 end)
-    self:_update(0xFF, "B", function(r) return 0x01 end)
-    self:_update(0x00, "B", function(r) return 0x01 end)
-    self:_update(0xFF, "B", function(r) return 0x00 end)
-    self:_update(0x80, "B", function(r) return 0x00 end)
+    self:_set(0xFF, "B", 0x01)
+    self:_set(0x00, "B", 0x01)
+    self:_set(0xFF, "B", 0x00)
+    self:_set(0x80, "B", 0x00)
     return count, type_is_aperture
 end
 
@@ -624,7 +624,7 @@ sensor:start_continuous()
 -- get current time
 local now = he.now()
 while true do --main loop
-    print("proximity", now, "i", sensor:read_range_continuous_millimeters() / 25.4)
+    he.send("proximity", now, "f", sensor:read_range_continuous_millimeters() / 25.4)
     -- sleep until next time
     now = he.wait{time=now + SAMPLE_INTERVAL}
 end
