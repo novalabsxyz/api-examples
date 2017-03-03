@@ -128,7 +128,7 @@ end
 function vl53l0x:init()
     --intialize sensor using sequence based on STM sample code
     self:_set(0x88, "B", 0x00)
-    self:_set(0x80, "B", 0x01 )
+    self:_set(0x80, "B", 0x01)
     self:_set(0xFF, "B", 0x01)
     self:_set(0x00, "B", 0x00)
     self.stop_variable = self:_get(0x91, "B")
