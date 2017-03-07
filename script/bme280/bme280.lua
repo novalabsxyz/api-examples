@@ -2,9 +2,6 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 60000 -- 1 minute
-
-
 bme280 = {
     DEFAULT_ADDRESS = 0x77,
 
@@ -226,27 +223,4 @@ function bme280:_get_calibration()
     }
 end
 
--- turn on V_sw and let the sensor settle
-he.power_set(true)
-
--- construct sensor on default address
-sensor = assert(bme280:new())
-
--- get current time
-local now = he.now()
-while true do
-    local calibration_temp, temperature = assert(sensor:read_temperature())
-    local humidity = assert(sensor:read_humidity(calibration_temp))
-    local pressure = assert(sensor:read_pressure(calibration_temp))
-
-    -- send readings
-    he.send("t", now, "f", temperature) --send temperature, as a float "f" on port "t"
-    he.send("h", now, "f", humidity) --send humidity as a float "f" on on port "h"
-    he.send("p", now, "f", pressure) --send pressure as a flot "f" on port "p"
-
-    -- Un-comment this line to see sampled values in semi-hosted mode
-    -- print(temperature, humidity, pressure)
-
-    -- sleep until next time
-    now = he.wait{time=now + SAMPLE_INTERVAL}
-end
+return bme280
