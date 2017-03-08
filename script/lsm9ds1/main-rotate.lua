@@ -1,5 +1,6 @@
 -- This script shows the sensor throwing interrupts for when it
 -- detects rotation around the Z-axis
+-- NOTE: This script requires helium-script 2.x
 
 lsm9ds1 = require("lsm9ds1")
 
