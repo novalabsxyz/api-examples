@@ -1,5 +1,6 @@
 -- Main loop for taking readings from the Helium Analog Board
 -- Requires helium-script 2.x and the ina219.lua library
+-- Run with helium-script -up -m main.lua ina219.lua
 
 ina219 = require("ina219")
 
