@@ -2,8 +2,6 @@
 
 i2c = he.i2c
 
-SAMPLE_INTERVAL = 6000 -- 10 seconds
-
 ina219 = {
     DEFAULT_ADDRESS                  = 0x40,
     READ_ADDRESS                     = 0x01,
@@ -14,7 +12,7 @@ ina219 = {
     REG_POWER                        = 0x03,
     REG_CURRENT                      = 0x04,
     REG_CALIBRATION                  = 0x05,
-    
+
     CONFIG_RESET                     = 0x8000,  -- Reset Bit
     CONFIG_BVOLTAGERANGE_MASK        = 0x2000,  -- Bus Voltage Range Mask
     CONFIG_BVOLTAGERANGE_16V         = 0x0000,  -- 0-16V Range
@@ -57,7 +55,12 @@ function ina219:new(address)
     -- We use a simple lua object system as defined
     -- https://www.lua.org/pil/16.1.html
     -- construct the object table
-    local o = { address = address, cal_value = 0, current_divider_ma = 0, power_divider_mw = 0 }
+    local o = {
+        address = address,
+        cal_value = 0,
+        current_divider_ma = 0,
+        power_divider_mw = 0
+    }
     -- ensure that the "class" is the metatable
     setmetatable(o, self)
     -- and that the metatable's index function is set
@@ -121,27 +124,48 @@ function ina219:set_calibration_32v_2a() --default
     self.cal_value = 410
     self.current_divider_ma = 10
     self.power_divider_mw = 2
-    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
-    local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
+    -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2",
+                 function(r) return r | self.cal_value end)
+    local config = self.CONFIG_BVOLTAGERANGE_32V
+        | self.CONFIG_GAIN_8_320MV
+        | self.CONFIG_BADCRES_12BIT
+        | self.CONFIG_SADCRES_12BIT_1S_532US
+        | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
+    --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
 function ina219:set_calibration_32v_1a()
     self.cal_value = 1024
     self.current_divider_ma = 25
     self.power_divider_mw = 1
-    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
-    local config = self.CONFIG_BVOLTAGERANGE_32V | self.CONFIG_GAIN_8_320MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
+    -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2",
+                 function(r) return r | self.cal_value end)
+    local config = self.CONFIG_BVOLTAGERANGE_32V
+        | self.CONFIG_GAIN_8_320MV
+        | self.CONFIG_BADCRES_12BIT
+        | self.CONFIG_SADCRES_12BIT_1S_532US
+        | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
+    --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
 function ina219:set_calibration_16v_400ma()
     self.cal_value = 819
     self.current_divider_ma = 20
     self.power_divider_mw = 1
-    self:_update(self.REG_CALIBRATION, ">i2", function(r) return r | self.cal_value end) -- set calibration register
-    local config = self.CONFIG_BVOLTAGERANGE_16V | self.CONFIG_GAIN_1_40MV | self.CONFIG_BADCRES_12BIT | self.CONFIG_SADCRES_12BIT_1S_532US | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
-    self:_update(self.REG_CONFIG, ">H", function(r) return config end) --set configuration register
+    -- set calibration register
+    self:_update(self.REG_CALIBRATION, ">i2",
+                 function(r) return r | self.cal_value end)
+    local config = self.CONFIG_BVOLTAGERANGE_16V
+        | self.CONFIG_GAIN_1_40MV
+        | self.CONFIG_BADCRES_12BIT
+        | self.CONFIG_SADCRES_12BIT_1S_532US
+        | self.CONFIG_MODE_SANDBVOLT_CONTINUOUS
+    --set configuration register
+    self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
 function ina219:get_voltage()
@@ -150,27 +174,11 @@ function ina219:get_voltage()
 end
 
 function ina219:get_current()
-    self:_update(self.REG_CALIBRATION, ">i2", function(r) return self.cal_value end) --set calibration register first as it sometimes gets reset
+    --set calibration register first as it sometimes gets reset
+    self:_update(self.REG_CALIBRATION, ">i2",
+                 function(r) return self.cal_value end)
     local result = self:_get(self.REG_CURRENT, ">i2")
     return result / self.current_divider_ma --milliamps
 end
 
--- construct sensor on default address
-sensor = assert(ina219:new())
-
--- get current time
-local now = he.now()
-while true do --main loop
-    local voltage = assert(sensor:get_voltage()) --V
-    local current = assert(sensor:get_current()) --mA
-
-    -- send readings
-    he.send("v", now, "f", voltage) --send voltage as a float "f" on on port "v"
-    he.send("c", now, "f", current) --send current as a float "f" on port "c"
-
-    -- Un-comment this line to see sampled values in semi-hosted mode
-    print(voltage, current)
-
-    -- sleep until next time
-    now = he.wait{time=now + SAMPLE_INTERVAL}
-end
+return ina219
