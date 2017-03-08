@@ -1,8 +1,6 @@
--- Helium script for LSM9DS1 9axis accelerometer/magnetometer/gyroscope
+-- Helium library for LSM9DS1 9axis accelerometer/magnetometer/gyroscope
 
 i2c = he.i2c
-
-SAMPLE_INTERVAL = 60000 -- 1 minute
 
 lsm9ds1_acc = {
     DEFAULT_ADDRESS = 0x6B, -- alternative is 0x6A
@@ -25,7 +23,10 @@ lsm9ds1_acc = {
     OUT_Y_XL = 0x2A,
     OUT_Z_XL = 0x2C,
 
+    -- table 89
     INT_GEN_CFG_G = 0x30,
+
+    -- table 90
     INT_GEN_THS_X_G = 0x31,
     INT_GEN_THS_Y_G = 0x33,
     INT_GEN_THS_Z_G = 0x35,
@@ -132,13 +133,17 @@ function lsm9ds1_acc:read_temp()
 end
 
 function lsm9ds1_acc:init_gyro(rate, scale, bandwidth, axes)
-    assert(rate >= self.RATE_OFF and rate <= self.RATE_952, "invalid gyroscope data rate")
+    assert(rate >= self.RATE_OFF and rate <= self.RATE_952,
+           "invalid gyroscope data rate")
     assert(scale == self.GYRO_SCALE_245 or scale == self.GYRO_SCALE_500 or scale == self.GYRO_SCALE_2000,
           "invalid gyroscope scale")
-    assert(bandwidth >=0 and bandwidth <= 3, "invalid gyroscope bandwidth: 0-3")
-    assert(axes >= 0 and axes <= 7, "invalid gyroscope axes")
+    assert(bandwidth >=0 and bandwidth <= 3,
+           "invalid gyroscope bandwidth: 0-3")
+    assert(axes >= 0 and axes <= 7,
+           "invalid gyroscope axes")
 
-    local status = i2c.txn(i2c.tx(self.address, self.CTRL_REG1_G, (rate << 5) | (scale << 3) | bandwidth))
+    local status = i2c.txn(i2c.tx(self.address, self.CTRL_REG1_G,
+                                  (rate << 5) | (scale << 3) | bandwidth))
     if not status then
         return false, "unable to configure gyroscope rate, scale and bandwidth"
     end
@@ -157,9 +162,11 @@ function lsm9ds1_acc:read_gyro()
     return x, y, z
 end
 
-function lsm9ds1_acc:set_interrupt_threshold(axis, threshold)
-    assert(threshold < 16384 and threshold > -16385, "threshold value out of range")
-    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z, "invalid axis")
+function lsm9ds1_acc:set_gyro_interrupt_threshold(axis, threshold)
+    assert(threshold < 16384 and threshold > -16385,
+           "threshold value out of range")
+    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
+           "invalid axis")
 
     local reg = self.INT_GEN_THS_X_G
     if axis == self.AXIS_Y then
@@ -172,12 +179,14 @@ function lsm9ds1_acc:set_interrupt_threshold(axis, threshold)
     -- the thresholds are stored as 15 bit two's complement, so we have to
     -- do some magic here
     local a, b = string.byte(string.pack(">i2", threshold), 1, 2)
-    return self:_update(reg, ">i2", function(r) return (r & 0x8000) | ((a & 0x7f) << 8) | b end)
+    return self:_update(reg, ">i2",
+                        function(r) return (r & 0x8000) | ((a & 0x7f) << 8) | b end)
 end
 
 
-function lsm9ds1_acc:get_interrupt_threshold(axis)
-    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z, "invalid axis")
+function lsm9ds1_acc:get_gyro_interrupt_threshold(axis)
+    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
+           "invalid axis")
 
     local reg = self.INT_GEN_THS_X_G
     if axis == self.AXIS_Y then
@@ -203,11 +212,35 @@ function lsm9ds1_acc:get_interrupt_threshold(axis)
     end)
 end
 
+function lsm9ds1_acc:config_gyro_interrupt(axis, threshold, low)
+    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
+           "invalid axis")
+    local result = self:set_gyro_interrupt_threshold(axis, threshold)
+    if not result then
+        return false, "unable to set interrupt threshold"
+    end
+
+    -- This relies on the definition of AXIS
+    int_cfg = 1 << axis
+    if not low then
+        int_cfg = int_cfg << 1
+    end
+    return self:_update(self.INT_GEN_CFG_G, "B", function(r) return r | int_cfg end)
+end
+
+function lsm9ds1_acc:enable_gyro_interrupts()
+    return self:_update(self.INT1_CTRL, "B", function(r) return r | (1 << 7) end)
+end
+
 function lsm9ds1_acc:init_accel(rate, scale, bandwidth, axes)
-    assert(rate >= self.RATE_OFF and rate <= self.RATE_952, "invalid accelerometer data rate")
-    assert(scale >= self.ACCEL_SCALE_2G and scale <= self.ACCEL_SCALE_8G, "invalid accelerometer scale")
-    assert(bandwidth >=0 and bandwidth <= 3, "invalid accelerometer bandwidth: 0-3")
-    assert(axes >= 0 and axes <= 7, "invalid accelerometer axes")
+    assert(rate >= self.RATE_OFF and rate <= self.RATE_952,
+           "invalid accelerometer data rate")
+    assert(scale >= self.ACCEL_SCALE_2G and scale <= self.ACCEL_SCALE_8G,
+           "invalid accelerometer scale")
+    assert(bandwidth >=0 and bandwidth <= 3,
+           "invalid accelerometer bandwidth: 0-3")
+    assert(axes >= 0 and axes <= 7,
+           "invalid accelerometer axes")
 
     status = i2c.txn(i2c.tx(self.address, self.CTRL_REG5_XL, axes << 3))
     if not status then
@@ -218,7 +251,8 @@ function lsm9ds1_acc:init_accel(rate, scale, bandwidth, axes)
     if bandwidth > 0 then
         bw = 1
     end
-    status = i2c.txn(i2c.tx(self.address, self.CTRL_REG6_XL, (rate << 5) | (scale << 3) | (bw << 2 )| bandwidth))
+    status = i2c.txn(i2c.tx(self.address, self.CTRL_REG6_XL,
+                            (rate << 5) | (scale << 3) | (bw << 2 )| bandwidth))
     if not status then
         return false, "unable to configure accelerometer rate, scale and bandwidth"
     end
@@ -296,18 +330,24 @@ function lsm9ds1_mag:is_connected()
 end
 
 function lsm9ds1_mag:init(mode, temp_comp, rate, scale, xy_performance, z_performance)
-    assert(mode >= self.MODE_CONTINUOUS and mode <= self.MODE_OFF, "invalid magnetometer mode")
-    assert(rate >= self.RATE_0_625 and rate <= self.RATE_80, "invalid magnetometer data rate")
-    assert(scale >= self.SCALE_4_GAUSS and scale <= self.SCALE_16_GAUSS, "invalid magnetometer scale")
-    assert(xy_performance >= self.PERF_LOW and xy_performance <= self.PERF_ULTRA, "invalid magnetometer X/Y performance value")
-    assert(z_performance >= self.PERF_LOW and z_performance <= self.PERF_ULTRA, "invalid magnetometer Z performance value")
+    assert(mode >= self.MODE_CONTINUOUS and mode <= self.MODE_OFF,
+           "invalid magnetometer mode")
+    assert(rate >= self.RATE_0_625 and rate <= self.RATE_80,
+           "invalid magnetometer data rate")
+    assert(scale >= self.SCALE_4_GAUSS and scale <= self.SCALE_16_GAUSS,
+           "invalid magnetometer scale")
+    assert(xy_performance >= self.PERF_LOW and xy_performance <= self.PERF_ULTRA,
+           "invalid magnetometer X/Y performance value")
+    assert(z_performance >= self.PERF_LOW and z_performance <= self.PERF_ULTRA,
+           "invalid magnetometer Z performance value")
 
     if temp_comp then
         temp_comp = 1
     else
         temp_comp = 0
     end
-    local status = i2c.txn(i2c.tx(self.address, self.CTRL_REG1_M, (temp_comp << 7) | (xy_performance << 5) | (rate << 2)))
+    local status = i2c.txn(i2c.tx(self.address, self.CTRL_REG1_M,
+                                  (temp_comp << 7) | (xy_performance << 5) | (rate << 2)))
     if not status then
         return false, "unable to configure magnetometer"
     end
@@ -337,7 +377,8 @@ function lsm9ds1_mag:read_offsets()
 end
 
 function lsm9ds1_mag:set_offsets(x, y, z)
-    local status = i2c.txn(i2c.tx(self.address, self.OFFSET_X_REG_L_M, string.pack("<i2i2i2", x, y, z)))
+    local status = i2c.txn(i2c.tx(self.address, self.OFFSET_X_REG_L_M,
+                                  string.pack("<i2i2i2", x, y, z)))
     return status
 end
 
@@ -379,108 +420,4 @@ function lsm9ds1:new(acc_address, mag_address)
     return o
 end
 
-sensor = assert(lsm9ds1:new())
-
-assert(sensor.acc:init_gyro(sensor.acc.RATE_59_5, sensor.acc.GYRO_SCALE_245, 0, sensor.acc.AXIS_ALL))
---assert(sensor.acc:init_accel(sensor.acc.RATE_119, sensor.acc.ACCEL_SCALE_16G, 3, sensor.acc.AXIS_ALL))
-assert(sensor.mag:init(sensor.mag.MODE_CONTINUOUS, true, sensor.mag.RATE_20, sensor.mag.SCALE_16_GAUSS, sensor.mag.PERF_ULTRA, sensor.mag.PERF_ULTRA))
-
-sensor.mag:set_offsets(0, 0, 0)
-sensor.mag:set_offsets(-377, 763, -1537)
---sensor.mag:set_offsets(351, 180, 102)
-
--- https://cdn-shop.adafruit.com/datasheets/AN203_Compass_Heading_Using_Magnetometers.pdf
-local function flatcompass(mx, my)
-    if my > 0 then
-        return 90 - math.atan(mx/my) * (180/math.pi)
-    elseif my < 0 then
-        return 270 - math.atan(mx/my) * (180/math.pi)
-    elseif my == 0 and mx < 0 then
-        return 180.0
-    else
-        return 0.0
-    end
-end
-
-
-he.interrupt_cfg("int0", "f", 10)
-
-sensor.acc:set_interrupt_threshold(sensor.acc.AXIS_Z, 2000)
---sensor.acc:set_interrupt_threshold(sensor.acc.AXIS_X, 2000)
---sensor.acc:set_interrupt_threshold(sensor.acc.AXIS_Y, 2000)
---print(sensor.acc:get_interrupt_threshold(sensor.acc.AXIS_Z))
-
--- enable interrupts on gyroscope z high
-sensor.acc:_update(sensor.acc.INT_GEN_CFG_G, "B", function(r) return r | (1 << 5) end)
---sensor.acc:_update(sensor.acc.INT_GEN_CFG_G, "B", function(r) return 127 end)
--- enable interrupts on the gyroscope
-sensor.acc:_update(sensor.acc.INT1_CTRL, "B", function(r) return r | (1 << 7) end)
---sensor.acc:_update(sensor.acc.INT1_CTRL, "B", function(r) return 255 end)
-sensor.acc:_update(sensor.acc.STATUS_REG, "B", function(r) return 255 end)
-
---print("title", "ax", "ay", "az", "gx", "gy", "gz", "heading")
---print("title", "heading")
--- get current time
-
-local now = he.now()
-local mx, my, mz = sensor.mag:read()
-local heading = (flatcompass(mx * - 1, my) + 16) % 360
-local rest = heading
-local newheading = 0
-local i = 1
-while true do
-    now, new_events, events = he.wait{time=now + 10000}
-    --print(sensor.acc:_get(0x27, "B"))
-    --print(sensor.acc:_get(0x14, "B"))
-    --print(sensor.acc:_get(sensor.acc.INT_GEN_CFG_G, "B"))
-    --print(sensor.acc:_get(sensor.acc.INT1_CTRL, "B"))
-    if new_events then
-        local gx, gy, gz = sensor.acc:read_gyro()
-        print("interrupt")
-        mx, my, mz = sensor.mag:read()
-        mx, my, mz = sensor.mag:read()
-        mx, my, mz = sensor.mag:read()
-        mx, my, mz = sensor.mag:read()
-        newheading = (flatcompass(mx * - 1, my) + 16) % 360
-        local diff = math.abs(heading - newheading)
-        if diff > 180 then
-            diff = 360 - diff
-        end
-        if diff > 2 then
-            if gz > 0 then
-                --print("turned left", diff, newheading, rest)
-                he.send("turn", now, "f", diff)
-            else
-                --print("turned right", diff, newheading, rest)
-                he.send("turn", now, "f", diff * -1)
-            end
-
-            if math.abs(rest - newheading) < 5 then
-                --print("returned to rest")
-                he.send("rest", now, "b", true)
-                --rest = newheading
-            end
-        end
-
-        heading = newheading
-    end
-    --local ax, ay, az = sensor.acc:read_accel()
-    --local gx, gy, gz = sensor.acc:read_gyro()
-    --local mx, my, mz = sensor.mag:read()
-
-    --heading = (flatcompass(mx * - 1, my) + 16) % 360
-    --print(i, heading)
-    --print(i, ax, ay, az, gx, gy, gz, heading )
-    --print(i, sensor.acc:read_gyro())
-    
-    --print(i, mx * -737, my * 742, mz * 737)
-
-    --print((flatcompass(mx * - 1, my) + 16) % 360)
-
-    --print(mx, my, mz)
-    --print(i, -3500, sensor.acc:read_gyro())
-    --print(sensor.acc:read_temp())
-    i = i + 1
-end
-
-
+return lsm9ds1
