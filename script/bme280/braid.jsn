@@ -1,6 +1,0 @@
-{
-    "red": [0, "Vin"],
-    "blue": [2, "GND"],
-    "orange": [3, "SCK"],
-    "brown": [5, "SDI"]
-}
