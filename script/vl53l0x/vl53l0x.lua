@@ -280,12 +280,12 @@ function vl53l0x:init()
     self:set_measurement_timing_budget(measurement_timing_budget_us);
 
 
-    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) 0x01)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", 0x01)
     if not self:perform_single_ref_calibration(0x40) then
         return false
     end
 
-    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", function(r) 0x02)
+    self:_set(self.SYSTEM_SEQUENCE_CONFIG, "B", 0x02)
     if not self:perform_single_ref_calibration(0x00) then
         return false
     end
