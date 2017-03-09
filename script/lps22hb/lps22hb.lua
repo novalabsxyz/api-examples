@@ -1,8 +1,6 @@
--- Development board on-board lps22hb sensor script
+-- Library for the Helium Atom on-board lps22hb sensor
 
 i2c = he.i2c
-
-SAMPLE_INTERVAL = 60000 -- 1 minute
 
 lps22hb = {
     DEFAULT_ADDRESS = 0x5C,
@@ -27,6 +25,7 @@ function lps22hb:new(address)
     -- and that the metatable's index function is set
     -- Refer to https://www.lua.org/pil/16.1.html
     self.__index = self
+    he.power_set(true)
     -- Check that the sensor is connected
     status, reason = o:is_connected()
     if not status then
@@ -118,34 +117,8 @@ function lps22hb:_oneshot_read(func)
         end
     until (result & 0x01) == 0
 
-    -- call the passed in function to actually get the specific
+    -- call the passed in function to actually get the specific value
     return func(self)
 end
 
-
--- turn on power to V_sw to turn the sensor on
-he.power_set(true)
--- construct the sensor
-sensor = assert(lps22hb:new())
--- get current time
-local now = he.now()
-while true do
-    -- take readings
-    local pressure = assert(sensor:read_pressure())
-    local temperature = assert(sensor:read_temperature())
-
-    -- turn power of to save battery
-    he.power_set(false)
-    -- send temperature as a float "f" on port "t"
-    he.send("t", now, "f", temperature)
-    -- send pressure as a float "f" on port "p"
-    he.send("p", now, "f", pressure)
-
-    -- Un-comment the following line to see results in semi-hosted mode
-    -- print(temperature, pressure)
-
-    -- wait for SAMPLE_INTERVAL time
-    now = he.wait{time=now + SAMPLE_INTERVAL}
-    -- turn switched power V_sw back on
-    he.power_set(true)
-end
+return lps22hb
