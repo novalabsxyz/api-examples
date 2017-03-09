@@ -29,7 +29,7 @@ while LOOP do
     -- read ambient light and transmit to Helium
     local amb = sensor:read_ambient()
     he.send("l", now, "I", amb)
-    if new_events then
+    if events then
         -- figure out what kind of interrupt it was and log it
         status = sensor:get_interrupt_status()
         if status.low_threshold then
