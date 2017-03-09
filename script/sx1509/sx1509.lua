@@ -159,6 +159,21 @@ function sx1509:set_pin_direction(pin, val)
     return self:_update(self.DIRB, ">I2", update)
 end
 
+-- set a pin's pull direction, can be "up", "down" or "none"
+function sx1509:set_pin_pull(pin, val)
+    local update = function(r)
+        return bit_set(pin, r, val == "up")
+    end
+    local state = self:_update(self.PULLUPB, ">I2", update)
+    if not state then
+        return state "unable to set pin pull direction"
+    end
+    update = function(r)
+        return bit_set(pin, r, val == "down")
+    end
+    return self:_update(self.PULLDOWNB, ">I2", update)
+end
+
 -- interrupts and edge events are 2 different things, the sx1509 can
 -- apparently watch for edge events and record them independently of
 -- throwing an interrupt
