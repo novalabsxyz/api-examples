@@ -166,12 +166,20 @@ function sx1509:set_pin_pull(pin, val)
     end
     local state = self:_update(self.PULLUPB, ">I2", update)
     if not state then
-        return state "unable to set pin pull direction"
+        return state, "unable to set pin pull direction"
     end
     update = function(r)
         return bit_set(pin, r, val == "down")
     end
     return self:_update(self.PULLDOWNB, ">I2", update)
+end
+
+-- set an output pin to be in open drain mode, true or false
+function sx1509:set_open_drain(pin, val)
+    local update = function(r)
+        return bit_set(pin, r, val == true)
+    end
+    return self:_update(self.OPENDRAINB, ">I2", update)
 end
 
 -- interrupts and edge events are 2 different things, the sx1509 can
