@@ -28,9 +28,9 @@ digital:set_debounce_rate(6) -- 7 is the max
 local i = math.random(0, 255)
 local j = math.random(0, 255)
 local k = math.random(0, 255)
-digital:set_pin_pwm(13, pwm.ION, i)
-digital:set_pin_pwm(14, pwm.ION, j)
-digital:set_pin_pwm(15, pwm.ION, k)
+digital:set_pin_pwm(13, digital.pwm.ION, i)
+digital:set_pin_pwm(14, digital.pwm.ION, j)
+digital:set_pin_pwm(15, digital.pwm.ION, k)
 
 -- process around the color space, if we get an interrupt, jump to a new random RGB coordinate
 while true do --main loop
@@ -38,9 +38,9 @@ while true do --main loop
     if events then
         -- switch on pin 1 triggered
         -- clear the LEDs so they blink off
-        digital:set_pin_pwm(13, pwm.ION, 255)
-        digital:set_pin_pwm(14, pwm.ION, 255)
-        digital:set_pin_pwm(15, pwm.ION, 255)
+        digital:set_pin_pwm(13, digital.pwm.ION, 255)
+        digital:set_pin_pwm(14, digital.pwm.ION, 255)
+        digital:set_pin_pwm(15, digital.pwm.ION, 255)
         -- set the LEDs to a new random color
         i = math.random(0, 255)
         j = math.random(0, 255)
@@ -53,7 +53,7 @@ while true do --main loop
     end
     -- Clearing all events regardless to work around a firmware bug
     digital:clear_events()
-    digital:set_pin_pwm(13, pwm.ION, i)
-    digital:set_pin_pwm(14, pwm.ION, j)
-    digital:set_pin_pwm(15, pwm.ION, k)
+    digital:set_pin_pwm(13, digital.pwm.ION, i)
+    digital:set_pin_pwm(14, digital.pwm.ION, j)
+    digital:set_pin_pwm(15, digital.pwm.ION, k)
 end
