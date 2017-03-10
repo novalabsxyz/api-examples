@@ -16,8 +16,7 @@ while true do
     -- send pressure as a float "f" on port "p"
     he.send("p", now, "f", pressure)
 
-    -- Un-comment the following line to see results in semi-hosted mode
-    -- print(temperature, pressure)
+    print(temperature, pressure)
 
     -- wait for SAMPLE_INTERVAL time
     now = he.wait{time=now + SAMPLE_INTERVAL}
