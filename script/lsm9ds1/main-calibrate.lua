@@ -13,7 +13,7 @@ assert(sensor.acc:init_accel(sensor.acc.RATE_952,
                             sensor.acc.ACCEL_SCALE_4G, 3,
                             sensor.acc.AXIS_ALL))
 
-assert(sensor.acc:init(sensor.mag.MODE_CONTINUOUS,
+assert(sensor.mag:init(sensor.mag.MODE_CONTINUOUS,
                        true, sensor.mag.RATE_80,
                        sensor.mag.SCALE_16_GAUSS,
                        3, 3))
