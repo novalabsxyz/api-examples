@@ -1,11 +1,25 @@
--- Main loop for taking readings from the Helium Analog Board
--- Requires helium-script 2.x and the ina219.lua library
--- Run with helium-script -up -m main.lua ina219.lua
+--- Example main loop for the Helium Analog Extension Board
+--
+-- Requires helium-script 2.x and the ina219.lua library. This main
+-- loop takes a voltage and current reading every `SAMPLE_INTERVAL`,
+-- and sends voltage on port `v`, current on port `c` to Helium. In
+-- semi-hosted mode the script will also print out the readings on the
+-- console.
+--
+-- @script ina219.main
+-- @license MIT
+-- @copyright 2017 Helium Systems, Inc.
+-- @usage
+-- # In semi-hosted mode over USB
+-- $ helium-script -m main.lua ina219.lua
+--
+-- # Upload to device over USB
+-- $ helium-script -m main.lua ina219.lua
 
 ina219 = require("ina219")
 
-
-SAMPLE_INTERVAL = 6000 -- 10 seconds
+--- Sampling interval (Set to 10 seconds).
+SAMPLE_INTERVAL = 10000 -- 10 seconds
 
 --construct sensor on default address
 sensor = assert(ina219:new())

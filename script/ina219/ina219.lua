@@ -1,9 +1,21 @@
--- INA219 analog board
+----
+-- INA219 Helium Analog Board
+-- This is the library class for configuration and using the INA219
+-- part used on the Helium Analog Extension Board
+--
+-- @module ina219
+-- @license MIT
+-- @copyright 2017 Helium Systems, Inc.
+-- @usage
+-- ina219 = require("ina219")
+-- sensor = ina219:new()
+-- current = sensor:get_current()
+-- voltage = sensor:get_voltage()
 
 i2c = he.i2c
 
 ina219 = {
-    DEFAULT_ADDRESS                  = 0x40,
+    DEFAULT_ADDRESS                  = 0x40, --- Default i2c address for module
     READ_ADDRESS                     = 0x01,
 
     REG_CONFIG                       = 0x00,
@@ -50,6 +62,12 @@ ina219 = {
     CONFIG_MODE_SANDBVOLT_CONTINUOUS = 0x0007
 }
 
+--- Construct a new INA219 sensor object.
+--
+--
+-- @usage local sensor = ina219:new()
+-- @param[opt=DEFAUlT_ADDRESS] address I2C address to use
+-- @treturn ina219 a connected sensor object
 function ina219:new(address)
     address = address or ina219.DEFAULT_ADDRESS
     -- We use a simple lua object system as defined
@@ -75,11 +93,15 @@ function ina219:new(address)
     return o
 end
 
+--- Check sensor connectivity
+-- Checks whether the sensor is actually connected to the Atom Board.
+--
+-- @return true if the sensor is connected to the board
 function ina219:is_connected()
     -- not sure what better to do here?
     local result = self:_get(self.REG_CURRENT, ">H")
     if not result then
-        return false, "could not locate device"
+        return false, "could not locate sensor"
     end
     return true
 end
@@ -120,6 +142,12 @@ function ina219:_update(reg, pack_fmt, update)
     return newvalue
 end
 
+--- Sets calibration of the analog board.
+--
+-- This sets the calibration values of the analog board to support
+-- measuring voltage up to 32V and current up to 2A.
+--
+-- This is the default and recommended configuration.
 function ina219:set_calibration_32v_2a() --default
     self.cal_value = 410
     self.current_divider_ma = 10
@@ -136,6 +164,10 @@ function ina219:set_calibration_32v_2a() --default
     self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
+--- Sets calibration of the analog board.
+--
+-- This sets the calibration values of the analog board to support
+-- measuring voltage up to 32V and current up to 1A.
 function ina219:set_calibration_32v_1a()
     self.cal_value = 1024
     self.current_divider_ma = 25
@@ -152,6 +184,10 @@ function ina219:set_calibration_32v_1a()
     self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
+--- Sets calibration of the analog board.
+--
+-- This sets the calibration values of the analog board to support
+-- measuring voltage up to 16V and current up to 40mA.
 function ina219:set_calibration_16v_400ma()
     self.cal_value = 819
     self.current_divider_ma = 20
@@ -168,11 +204,15 @@ function ina219:set_calibration_16v_400ma()
     self:_update(self.REG_CONFIG, ">H", function(r) return config end)
 end
 
+--- Get voltage reading
+-- @treturn float a voltage reading in Volts
 function ina219:get_voltage()
     local result = self:_get(self.REG_BUSVOLTAGE, ">i2")
     return ((result >> 3) * 4) * 0.001 --volts
 end
 
+--- Get current reading
+-- @treturn float a current reading in mA
 function ina219:get_current()
     --set calibration register first as it sometimes gets reset
     self:_update(self.REG_CALIBRATION, ">i2",
