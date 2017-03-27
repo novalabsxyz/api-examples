@@ -17,7 +17,7 @@ ads1115 = {
     -- positive pin comes first, when doing a differential compare
 
     -- differential compares
-    COMPARE_AIN0_AIN1  = 0,
+    COMPARE_AIN0_AIN1  = 0, -- default
     COMPARE_AIN0_AIN3  = 1,
     COMPARE_AIN1_AIN3  = 2,
     COMPARE_AIN2_AIN3  = 3,
@@ -27,16 +27,39 @@ ads1115 = {
     COMPARE_AIN2_GND   = 6,
     COMPARE_AIN3_GND   = 7,
 
+    GAIN_0_6 = 0, -- two thirds gain +/- 6.144V
+    GAIN_1   = 1, -- +/- 4.096V
+    GAIN_2   = 2, -- default +/- 2.048V
+    GAIN_4   = 3, -- +/- 1.024V
+    GAIN_8   = 4, -- +/- 0.512V
+    GAIN_16  = 5, -- +/- 0.256V
+
+    -- in continuous mode, how many samples/second
+    RATE_8SPS   = 0,
+    RATE_16SPS  = 1,
+    RATE_32SPS  = 2,
+    RATE_64SPS  = 3,
+    RATE_128SPS = 4, -- default
+    RATE_250SPS = 5,
+    RATE_475SPS = 6,
+    RATE_860SPS = 7,
+
+    --- how many successive samples over/under threshold before comparator interrupts
+    ASSERT_ONE  = 0,
+    ASSERT_TWO  = 1,
+    ASSERT_FOUR = 2,
+    ASSERT_NONE = 3, -- default
+
     cfg_bitfield = bitfield {
-        comparator_queue = bitrange(0,1), -- how many high/low values before interrupt fires, default disabled
-        comparator_latch = bitrange(2), -- if the interrupt latches, 0 is false and the default
-        comparator_polarity = bitrange(3), -- interrupt pin high or low when active (0 is active low and the default)
-        comparator_mode = bitrange(4), -- comparator in 'traditional' mode, or 'window' mode. 0 the default traditional mode
-        data_rate = bitrange(5,7), -- data rate 128 samples/second is the default
-        mode = bitrange(8), -- single shot mode (default) or continuous sample mode
-        gain = bitrange(9,11), -- gain, default +/-2.048V
-        pins = bitrange(12, 14), -- which pins to compare: default A0+ to A1-
-        status = bitrange(15) -- 0 device is performing a single shot sample, 1 device is not currently sampling
+        comparator_queue = bitrange(1,2), -- how many high/low values before interrupt fires, default disabled
+        comparator_latch = bitrange(3), -- if the interrupt latches, 0 is false and the default
+        comparator_polarity = bitrange(4), -- interrupt pin high or low when active (0 is active low and the default)
+        comparator_mode = bitrange(5), -- comparator in 'traditional' mode, or 'window' mode. 0 the default traditional mode
+        data_rate = bitrange(6,8), -- data rate 128 samples/second is the default
+        mode = bitrange(9), -- single shot mode (default) or continuous sample mode
+        gain = bitrange(10,12), -- gain, default +/-2.048V
+        pins = bitrange(13, 15), -- which pins to compare: default A0+ to A1-
+        status = bitrange(16) -- 0 device is performing a single shot sample, 1 device is not currently sampling
                               -- set this field to 1 to perform a single shot sample
     }
 }
@@ -107,21 +130,83 @@ function ads1115:_update(reg, pack_fmt, update)
     return newvalue
 end
 
---function ads1115:_cfg_bitfield(r)
+function ads1115:_update_cfg(key, value)
+    local update = function(r)
+        local cfg = bitfield(self.cfg_bitfield, r)
+	cfg[key] = value
+        return cfg[bitrange("unsigned", 1, 16)]
+    end
 
+    return self:_update(self.CONFIG_REG, ">I2", update)
+end
 
 function ads1115:set_comparison_pins(pins)
     assert(pins >= 0 and pins <= 7, "invalid pin selection")
-    local update = function(r)
-        local cfg = bitfield(self.cfg_bitfield, r)
-        print(r)
-        print(cfg)
-        return r
-    end
-
-    self.update(self.CONFIG_REG, ">I2", update)
+    return self:_update_cfg("pins", pins)
 end
 
+function ads1115:set_gain(gain)
+    assert(gain >= 0 and gain <= 5, "invalid sample rate")
+    return self:_update_cfg("gain", gain)
+end
 
-local adc = assert(ads1115:new())
-adc:set_comparison_pins()
+function ads1115:set_rate(rate)
+    assert(rate >= 0 and rate <= 7, "invalid gain level")
+    return self:_update_cfg("data_rate", rate)
+end
+
+function ads1115:set_continuous(val)
+    return self:_update_cfg("mode", val == false)
+end
+
+function ads1115:set_comparator_queue(count)
+    assert(count >= 0 and count <= 3, "invalid comparator queue count")
+    return self:_update_cfg("comparator_queue", count)
+end
+
+function ads1115:set_comparator_latch(val)
+    return self:_update_cfg("comparator_latch", val)
+end
+
+function ads1115:set_comparator_window_mode(val)
+    return self:_update_cfg("comparator_mode", val)
+end
+
+function ads1115:read()
+    return self:_get(self.CONVERSION_REG, ">i2")
+end
+
+function ads1115:get_config()
+    return self:_get(self.CONFIG_REG, ">I2",
+        function(r)
+            return bitfield(self.cfg_bitfield, r)
+        end)
+end
+
+function ads1115:oneshot_sample()
+    self:_update_cfg("status", true)
+    local cfg = self:get_config()
+    while not cfg.status do
+        -- TODO fix this once we can avoid flushing interrupt events in waits
+        he.wait{time=he.now()+10}
+    end
+    return self:read()
+end
+
+function ads1115:set_high_threshold(value)
+     local status = i2c.txn(i2c.tx(self.address, self.HIGH_THRESHOLD_REG, string.pack(">i2", value)))
+     if not status then
+        return false, "unable to set high threshold value"
+    end
+    return true
+end
+
+function ads1115:set_low_threshold(value)
+     local status = i2c.txn(i2c.tx(self.address, self.LOW_THRESHOLD_REG, string.pack(">i2", value)))
+     if not status then
+        return false, "unable to set high threshold value"
+    end
+    return true
+end
+
+return ads1115
