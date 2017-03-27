@@ -9,9 +9,9 @@ gh-pages:
 	git reset HEAD
 	$(MAKE) docs
 	mv -fv docs/* ./
-	rm -rf $(GH_PAGES_SOURCES) docs
+	rm -rf $(GH_PAGES_SOURCES) docs *.css modules scripts
 	git add -A
-	git ci -m "Generated gh-pages for `git log master -1 --pretty=short --abbrev-commit`" && git push origin gh-pages ; git checkout master
+	git commit -m "Generated gh-pages for `git log master -1 --pretty=short --abbrev-commit`" && git push origin gh-pages ; git checkout --force master
 
 .PHONY: clean
 clean:
