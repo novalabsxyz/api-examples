@@ -299,7 +299,7 @@ end
 
 function sx1509:read_pin(pin)
     return self:_get(self.DATAB, ">I2",
-                     function(r) return (r & (1 << pin)) > 1 end)
+                     function(r) return (r & (1 << pin)) > 0 end)
 end
 
 function sx1509:write_pin(pin, val)
