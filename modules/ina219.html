@@ -1,0 +1,297 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>Reference</title>
+    <link rel="stylesheet" href="../ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>Helium</h1>
+
+<ul>
+  <li><a href="../index.html">Index</a></li>
+</ul>
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Fields">Fields</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="$(kind=='Topics' and '' or 'nowrap'">
+  <li><a href="../modules/ina219.config.html">ina219.config</a></li>
+  <li><strong>ina219</strong></li>
+</ul>
+<h2>Scripts</h2>
+<ul class="$(kind=='Topics' and '' or 'nowrap'">
+  <li><a href="../scripts/ina219.main-ssa.html">ina219.main-ssa</a></li>
+  <li><a href="../scripts/ina219.main.html">ina219.main</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>ina219</code></h1>
+<p>INA219 Helium Analog Board
+ This is the library class for configuration and using the INA219
+ part used on the Helium Analog Extension Board</p>
+<p>
+
+</p>
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">
+ ina219 = require(&quot;ina219&quot;)
+ sensor = ina219:new()
+ current = sensor:get_current()
+ voltage = sensor:get_voltage()</pre>
+    </ul>
+    <h3>Info:</h3>
+    <ul>
+        <li><strong>Copyright</strong>: 2017 Helium Systems, Inc.</li>
+        <li><strong>License</strong>: MIT</li>
+    </ul>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#new">new ([address=DEFAUlT_ADDRESS])</a></td>
+	<td class="summary">Construct a new INA219 sensor object.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#is_connected">is_connected ()</a></td>
+	<td class="summary">Check sensor connectivity
+ Checks whether the sensor is actually connected to the Atom Board.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#set_calibration_32v_2a">set_calibration_32v_2a ()</a></td>
+	<td class="summary">Sets calibration of the analog board.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#set_calibration_32v_1a">set_calibration_32v_1a ()</a></td>
+	<td class="summary">Sets calibration of the analog board.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#set_calibration_16v_400ma">set_calibration_16v_400ma ()</a></td>
+	<td class="summary">Sets calibration of the analog board.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_voltage">get_voltage ()</a></td>
+	<td class="summary">Get voltage reading</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#get_current">get_current ()</a></td>
+	<td class="summary">Get current reading</td>
+	</tr>
+</table>
+<h2><a href="#Fields">Fields</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#READ_ADDRESS">READ_ADDRESS</a></td>
+	<td class="summary">Default i2c address for module</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "new"></a>
+    <strong>new ([address=DEFAUlT_ADDRESS])</strong>
+    </dt>
+    <dd>
+    Construct a new INA219 sensor object.
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">address</span>
+         I2C address to use
+         (<em>default</em> DEFAUlT_ADDRESS)
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">ina219</span></span>
+        a connected sensor object
+    </ol>
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example"><span class="keyword">local</span> sensor = ina219:new()</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "is_connected"></a>
+    <strong>is_connected ()</strong>
+    </dt>
+    <dd>
+    Check sensor connectivity
+ Checks whether the sensor is actually connected to the Atom Board.
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true if the sensor is connected to the board
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "set_calibration_32v_2a"></a>
+    <strong>set_calibration_32v_2a ()</strong>
+    </dt>
+    <dd>
+    Sets calibration of the analog board. </p>
+
+<p> This sets the calibration values of the analog board to support
+ measuring voltage up to 32V and current up to 2A.</p>
+
+<p> This is the default and recommended configuration.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "set_calibration_32v_1a"></a>
+    <strong>set_calibration_32v_1a ()</strong>
+    </dt>
+    <dd>
+    Sets calibration of the analog board. </p>
+
+<p> This sets the calibration values of the analog board to support
+ measuring voltage up to 32V and current up to 1A.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "set_calibration_16v_400ma"></a>
+    <strong>set_calibration_16v_400ma ()</strong>
+    </dt>
+    <dd>
+    Sets calibration of the analog board. </p>
+
+<p> This sets the calibration values of the analog board to support
+ measuring voltage up to 16V and current up to 40mA.
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_voltage"></a>
+    <strong>get_voltage ()</strong>
+    </dt>
+    <dd>
+    Get voltage reading
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">float</span></span>
+        a voltage reading in Volts
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "get_current"></a>
+    <strong>get_current ()</strong>
+    </dt>
+    <dd>
+    Get current reading
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+           <span class="types"><span class="type">float</span></span>
+        a current reading in mA
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Fields"></a>Fields</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "READ_ADDRESS"></a>
+    <strong>READ_ADDRESS</strong>
+    </dt>
+    <dd>
+    Default i2c address for module
+
+
+
+
+
+
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.3</a></i>
+<i style="float:right;">Last updated 2017-03-27 11:58:17 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
