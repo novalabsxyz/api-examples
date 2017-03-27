@@ -22,7 +22,10 @@ digital:set_led_driver(15, true)
 digital:set_pin_direction(1, "input") --set pin 1 as an input pin
 
 digital:set_pin_interrupt(1, true, "f") -- like he.interrupt, takes r, f or e
-digital:set_debounce_rate(6) -- 7 is the max
+-- require 2 consecutive samples to be the same 32ms apart before
+-- firing an interrupt
+digital:set_debounce_rate(digital.DEBOUNCE_RATE_32ms)
+digital:set_pin_debounce(1, true) -- enable debounce on pin 1
 
 -- pick a random starting point for the LED colors
 local i = math.random(0, 255)

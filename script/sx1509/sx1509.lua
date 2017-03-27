@@ -42,7 +42,17 @@ sx1509 = {
     DEBOUNCEA         = 0x24,
     RESET             = 0x7D,
     CLOCK             = 0x1E,
-    MISC              = 0x1F
+    MISC              = 0x1F,
+
+    -- debounce rate, in milliseconds
+    DEBOUNCE_RATE_0_5ms = 0,
+    DEBOUNCE_RATE_1ms   = 1,
+    DEBOUNCE_RATE_2ms   = 2,
+    DEBOUNCE_RATE_4ms   = 3,
+    DEBOUNCE_RATE_8ms   = 4,
+    DEBOUNCE_RATE_16ms  = 5,
+    DEBOUNCE_RATE_32ms  = 6,
+    DEBOUNCE_RATE_64ms  = 7
 }
 
 local pwm = {
