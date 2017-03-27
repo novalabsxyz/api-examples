@@ -78,7 +78,7 @@ coverage.xml
 docs/_build/
 
 # LDoc documentation
-script/doc
+docs
 
 # PyBuilder
 target/
