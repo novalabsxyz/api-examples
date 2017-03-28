@@ -49,7 +49,7 @@ script:
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
     git fetch origin gh-pages
-    git checkout origin/gh-pages
+    git checkout -b gh-pages origin/gh-pages
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Check out just the bits we need to generate docs from master
@@ -58,7 +58,7 @@ script:
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Build docs
-    $MAKE docs
+    make docs
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Remove previous doc folders
