@@ -47,11 +47,10 @@ script:
 
     git config --global user.name $GH_USER_NAME
     git config --global user.email $GH_USER_EMAIL
-    git remote add upstream git@github.com:helium/api-examples.git
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
-    git fetch origin gh-pages
+    git remote set-branches --add origin gh-pages
     git checkout gh-pages
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
