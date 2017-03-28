@@ -43,6 +43,9 @@ script:
     declare -r GH_PAGES_SOURCES="Makefile config.ld script/"
     cd $TRAVIS_BUILD_DIR
 
+    git config --global user.name $GH_USER_NAME
+    git config --global user.email $GH_USER_EMAIL
+
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
     git fetch origin gh-pages
