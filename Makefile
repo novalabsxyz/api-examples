@@ -9,6 +9,7 @@ gh-pages:
 	git checkout master $(GH_PAGES_SOURCES)
 	git reset HEAD
 	$(MAKE) docs
+	rm -rf modules scripts
 	mv -fv docs/* ./
 	rm -rf $(GH_PAGES_SOURCES) docs
 	git add -A
