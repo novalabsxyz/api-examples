@@ -41,7 +41,7 @@ script:
   - |
 
     declare -r GH_PAGES_SOURCES="Makefile config.ld script/"
-    cd $(TRAVIS_BUILD_DIR)
+    cd $TRAVIS_BUILD_DIR
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
@@ -50,12 +50,12 @@ script:
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Check out just the bits we need to generate docs from master
-    git checkout master $(GH_PAGES_SOURCES)
+    git checkout master $GH_PAGES_SOURCES
     git reset HEAD
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Build docs
-    $(MAKE) docs
+    $MAKE docs
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Remove previous doc folders
@@ -67,7 +67,7 @@ script:
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Remove build artifacts so they don't get checked in
-    rm -rf $(GH_PAGES_SOURCES) docs env
+    rm -rf $GH_PAGES_SOURCES docs env
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Add new docs, commit and push to origin
