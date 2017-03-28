@@ -40,7 +40,7 @@ before_script:
 script:
   - |
 
-    declare -r GH_PAGES_SOURCES=Makefile config.ld script/
+    declare -r GH_PAGES_SOURCES="Makefile config.ld script/"
     cd $(TRAVIS_BUILD_DIR)
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
