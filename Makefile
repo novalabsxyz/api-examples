@@ -11,7 +11,7 @@ gh-pages:
 	$(MAKE) docs
 	rm -rf modules scripts
 	mv -fv docs/* ./
-	rm -rf $(GH_PAGES_SOURCES) docs
+	rm -rf $(GH_PAGES_SOURCES) docs env
 	git add -A
 	git commit -m "Generated gh-pages for `git log master -1 --pretty=short --abbrev-commit`" && git push origin gh-pages ; git checkout --force master
 
