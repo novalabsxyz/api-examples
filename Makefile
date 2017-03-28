@@ -4,6 +4,7 @@ docs:
 
 GH_PAGES_SOURCES = Makefile config.ld script/
 gh-pages:
+	git fetch origin gh-pages
 	git checkout origin/gh-pages
 	git checkout master $(GH_PAGES_SOURCES)
 	git reset HEAD
