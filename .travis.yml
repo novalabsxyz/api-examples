@@ -1,0 +1,22 @@
+language: python
+sudo: false
+env:
+  matrix:
+  - LUA="lua 5.3"
+  global:
+    secure: Bwx2RD2Qehd6jgAH3sr2cj7dzlugNza58T0fif87TjrO9RPj97gH2VWHjHfMCTzXxvhIqMvdJrPTnZYJdpvjxOh4SODVAxMEGnHaLhUR2x2Znlrx78DIHQgO8Hfs8QtfzOF99JybOIIzCNSDQkSlwfsUVHCs0u9qaDim3Wnt8/Sex6IW1KyTyT0ukySg36g73et83hoJ57n8pxM4JE5NcEHnt2bKmYy617RBArP6ZMKcbRCBHQKZ6q6/uxwuq5jkerffvfPzY1T5oAcmMJy9otkx7FL5xVgqeCSEz0b7fw7704usrJbQUyc7O2KHQFz6qRUBgSuNdbEnvYvv1/5DwubFZP4wcpezN0RfK2KredxWBRwECJPnhM+ijrR0jScTIdCpfDZmPyl23Jf2XBUxKlR42D8HN3/2V92oc/w/brHI0PB+VNPBTQxM9UVC1qtwvihxRp1xb6QdQWBXB1tcoFwK8WnfIvk6QPr++Nked6rSwITTUm1LcV4A1SDjRzY0pWvzFfd8VbKnKKIi+m3Jzk0HUmjLNDB7rSNABFWvfCC8I5vW5tXJZYpWo2jyqF4i2VQtGxCOACbYQohJ81ry4j7sgqXCHTEkp/Y/Q6HdJ1qDbk2sCNdd0XC5x7b8OSS86d0ZXrjdwoLSbd/m807z4CAXjuzsGsY2+EVZtDxz3+A=
+
+before_install:
+  - pip install hererocks
+  - hererocks env -- $LUA -rlatest
+  - source env/bin/activate
+  - luarocks install ldoc
+
+before_script:
+  - git config --global user.email "packaging@helium.com"
+  - git config --global user.name "Helium Packager"
+  - git remote rm origin
+  - git remote add origin https://user:${GH_TOKEN}@github.com/helium/api-examples.git
+
+script:
+  - make gh-pages
