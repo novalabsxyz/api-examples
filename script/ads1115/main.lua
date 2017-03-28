@@ -24,7 +24,7 @@ adc:set_comparator_latch(true)
 adc:set_comparator_window_mode(true)
 
 -- set up our interrupt pin
-he.interrupt_cfg{pin="int0", edge="either", pull="up", debounce=10}
+he.interrupt_cfg{pin="int0", edge="falling", pull="up", debounce=10}
 
 while true do
     local now, new_events = he.wait{time=he.now() + 1000}
