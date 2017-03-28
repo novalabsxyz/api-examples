@@ -51,6 +51,7 @@ script:
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
     git remote set-branches --add origin gh-pages
+    git fetch
     git checkout gh-pages
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
