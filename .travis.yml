@@ -11,12 +11,12 @@ before_install:
   - luarocks install ldoc
 
 before_script:
-  - cd ${TRAVIS_REPO_SLUG}
+  - cd ${TRAVIS_BUILD_DIR}
   - git config --global user.email "packaging@helium.com"
   - git config --global user.name "Helium Packager"
   - git remote rm origin
   - git remote add origin https://user:${GH_TOKEN}@github.com/helium/api-examples.git
 
 script:
-  - cd ${TRAVIS_REPO_SLUG}
+  - cd ${TRAVIS_BUILD_DIR}
   - make gh-pages
