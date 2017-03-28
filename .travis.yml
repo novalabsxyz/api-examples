@@ -40,16 +40,19 @@ before_script:
 script:
   - |
 
+    set -o errexit -o nounset
+
     declare -r GH_PAGES_SOURCES="Makefile config.ld script/"
     cd $TRAVIS_BUILD_DIR
 
     git config --global user.name $GH_USER_NAME
     git config --global user.email $GH_USER_EMAIL
+    git remote add upstream git@github.com:helium/api-examples.git
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
     git fetch origin gh-pages
-    git checkout -b gh-pages origin/gh-pages
+    git checkout gh-pages
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Check out just the bits we need to generate docs from master
@@ -76,5 +79,5 @@ script:
     # Add new docs, commit and push to origin
     git add -A
     git commit -m "Generated gh-pages for `git log master -1 --pretty=short --abbrev-commit`"
-    git push origin gh-pages
+    git push upstream gh-pages
     git checkout --force master
