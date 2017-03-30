@@ -50,6 +50,7 @@ script:
 
     # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     # Fetch and checkout gh-pages branch
+    git remote add upstream git@github.com:helium/api-examples.git
     git remote set-branches --add origin gh-pages
     git fetch
     git checkout gh-pages
