@@ -15,7 +15,8 @@
 i2c = he.i2c
 
 ina219 = {
-    DEFAULT_ADDRESS                  = 0x40, --- Default i2c address for module
+    --- Default i2c address for module
+    DEFAULT_ADDRESS                  = 0x40,
     READ_ADDRESS                     = 0x01,
 
     REG_CONFIG                       = 0x00,
@@ -66,7 +67,7 @@ ina219 = {
 --
 --
 -- @usage local sensor = ina219:new()
--- @param[opt=DEFAUlT_ADDRESS] address I2C address to use
+-- @param[opt=DEFAULT_ADDRESS] address I2C address to use
 -- @treturn ina219 a connected sensor object
 function ina219:new(address)
     address = address or ina219.DEFAULT_ADDRESS
