@@ -75,14 +75,7 @@ end
 
 -- get current time
 local now = he.now()
-local voltage
-local resistance
 local temp
-local k
-local v
-local nxt
-local curval
-local nxtval
 
 while true do --main loop
     local voltage = assert(sensor:get_voltage()) --v
@@ -97,10 +90,10 @@ while true do --main loop
         else
             -- we don't have an exact match, so we have to dither
             for k, v in pairs(keys) do
-                nxt = keys[k+1]
+                local nxt = keys[k+1]
                 if resistance > v and resistance < nxt then
-                    curval = LOOKUP[v]
-                    nxtval = LOOKUP[keys[k+1]]
+                    local curval = LOOKUP[v]
+                    local nxtval = LOOKUP[keys[k+1]]
                     temp = dither(v, nxt, resistance, curval, nxtval)
                     break
                 end
