@@ -75,9 +75,9 @@ end
 
 -- get current time
 local now = he.now()
-local temp
 
 while true do --main loop
+    local temp
     local voltage = assert(sensor:get_voltage()) --v
     local resistance =  10000 * (1/((3.3/voltage) - 1.0))
 
