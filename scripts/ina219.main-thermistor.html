@@ -39,8 +39,8 @@
 <h2>Scripts</h2>
 <ul class="nowrap">
   <li><a href="../scripts/ina219.main-ssa.html">ina219.main-ssa</a></li>
-  <li><a href="../scripts/ina219.main-thermistor.html">ina219.main-thermistor</a></li>
-  <li><strong>ina219.main</strong></li>
+  <li><strong>ina219.main-thermistor</strong></li>
+  <li><a href="../scripts/ina219.main.html">ina219.main</a></li>
 </ul>
 <h2>Modules</h2>
 <ul class="nowrap">
@@ -52,22 +52,23 @@
 
 <div id="content">
 
-<h1>Script <code>ina219.main</code></h1>
+<h1>Script <code>ina219.main-thermistor</code></h1>
 <p>Example main loop for the Helium Analog Extension Board</p>
 
 <p> Requires helium-script 2.x and the ina219.lua library.</p>
 <p> This main
- loop takes a voltage and current reading every <a href="../scripts/ina219.main.html#SAMPLE_INTERVAL">SAMPLE_INTERVAL</a>,
- and sends voltage on port <code>v</code>, current on port <code>c</code> to Helium. In
- semi-hosted mode the script will also print out the readings on the
- console.</p>
+ loop uses the 'thermistor' mode of the Analog Extension board. The
+ mode jumper is set to 'Therm' and a NTC 10k thermistor is connected across
+ the V(T) screw terminals. The resistance/temperature curve is for a
+ US Sensors Thermistor (ussensors.com). In this jumper mode, the thermistor
+ is coupled with a 10k resistor to form a voltage divider.</p>
     <h3>Usage:</h3>
     <ul>
         <pre class="example"># In semi-hosted mode over USB
-$ helium-script -m main.lua ina219.lua
+$ helium-script -m main-NTC-10k-thermistor.lua ina219.lua
 
 # Upload to device over USB
-$ helium-script -m main.lua ina219.lua
+$ helium-script -up -m main-NTC-10k-thermistor.lua ina219.lua
 </pre>
     </ul>
     <h3>Info:</h3>
@@ -81,7 +82,7 @@ $ helium-script -m main.lua ina219.lua
 <table class="function_list">
 	<tr>
 	<td class="name" nowrap><a href="#SAMPLE_INTERVAL">SAMPLE_INTERVAL</a></td>
-	<td class="summary">Sampling interval (Set to 10 seconds).</td>
+	<td class="summary">Sampling interval</td>
 	</tr>
 </table>
 
@@ -97,7 +98,7 @@ $ helium-script -m main.lua ina219.lua
     <strong>SAMPLE_INTERVAL</strong>
     </dt>
     <dd>
-    Sampling interval (Set to 10 seconds).
+    Sampling interval
 
 
 
