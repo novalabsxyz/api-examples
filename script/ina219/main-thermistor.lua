@@ -7,7 +7,7 @@
 -- US Sensors Thermistor (ussensors.com). In this jumper mode, the thermistor
 -- is coupled with a 10k resistor to form a voltage divider.
 --
--- @script ina219.main
+-- @script ina219.main-thermistor
 -- @license MIT
 -- @copyright 2017 Helium Systems, Inc.
 -- @usage
