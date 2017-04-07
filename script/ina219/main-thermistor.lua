@@ -19,8 +19,8 @@
 
 ina219 = require("ina219")
 
---- Sampling interval (Set to 10 seconds).
-SAMPLE_INTERVAL = 10000 -- 10 seconds
+--- Sampling interval
+SAMPLE_INTERVAL = 600000 -- 10 minutes
 
 -- resistance/temperature lookup table
 LOOKUP = {
