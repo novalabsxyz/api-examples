@@ -18,10 +18,8 @@
 -- $ helium-script -up -m main-NTC-10k-thermistor.lua ina219.lua
 
 ina219 = require("ina219")
-
 --- Sampling interval
 SAMPLE_INTERVAL = 600000 -- 10 minutes
-
 -- resistance/temperature lookup table
 LOOKUP = {
     [336479] = -40, [314904] = -39, [294848] = -38, [276194] = -37, [258838] = -36,
@@ -58,7 +56,6 @@ LOOKUP = {
 
 --construct sensor on default address
 sensor = assert(ina219:new())
-
 sensor:set_calibration_16v_400ma()
 
 local keys = {}
@@ -66,12 +63,6 @@ for k in pairs(LOOKUP) do
     keys[#keys+1] = k
 end
 table.sort(keys)
-
-function dither(res1, res2, resistance, temp1, temp2)
-    local interval = res2 - res1
-    local percentage = ((res2 - resistance) / interval)
-    return temp1 + ((temp2 - temp1) * (1+percentage))
-end
 
 -- get current time
 local now = he.now()
@@ -81,9 +72,7 @@ while true do --main loop
     local voltage = assert(sensor:get_voltage()) --v
     local resistance =  10000 * (1/((3.3/voltage) - 1.0))
 
-    if resistance < keys[1] or resistance > keys[#keys] then
-        print("resistance out of range", resistance, keys[1], keys[#keys])
-    else
+    if not (resistance < keys[1] or resistance > keys[#keys]) then
         if LOOKUP[resistance] then
             -- we have an exact match in the lookup table, awesome!
             temp = LOOKUP[resistance]
@@ -92,17 +81,13 @@ while true do --main loop
             for k, v in pairs(keys) do
                 local nxt = keys[k+1]
                 if resistance > v and resistance < nxt then
-                    local curval = LOOKUP[v]
-                    local nxtval = LOOKUP[keys[k+1]]
-                    temp = dither(v, nxt, resistance, curval, nxtval)
+                    temp = LOOKUP[v] + ((LOOKUP[keys[k+1]] - LOOKUP[v]) * (1+((nxt - resistance) / (v - nxt))))
                     break
                 end
             end
         end
-        print(temp)
         he.send("t", now, "f", temp)
     end
-
     -- sleep until next time
     now = he.wait{time=now + SAMPLE_INTERVAL}
 end
