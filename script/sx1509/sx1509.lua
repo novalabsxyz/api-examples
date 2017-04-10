@@ -212,11 +212,11 @@ function sx1509:set_pin_event(pin, direction)
     local register_offset = 4 - (math.floor(pin / 4) + 1)
     local reg = self.SENSEHIGHB + register_offset
     local dirvalue = 0
-    if direction == "r" then
+    if direction == "r" or direction == "rising" then
         dirvalue = 1
-    elseif direction == "f" then
+    elseif direction == "f" or direction == "falling" then
         dirvalue = 2
-    elseif direction == "e" then
+    elseif direction == "e" or direction == "either" then
         dirvalue = 3
     else
         return false, "unknown event direction"
@@ -325,17 +325,6 @@ function sx1509:toggle_pin(pin)
 end
 
 --Turns on the internal clock, must be on for PWM/debounce to work
-function sx1509:set_clock(val)
-    local update = function(r)
-        if val then
-            return r | 0x40
-        else
-            return r & ~0x40
-        end
-    end
-    return self:_update(self.MISC, "B", update)
-end
-
 function sx1509:set_clock(val)
     if not val then
         i2c.txn(i2c.tx(self.address, self.CLOCK, 0x00))
