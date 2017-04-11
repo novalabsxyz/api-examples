@@ -6,7 +6,7 @@ SAMPLE_INTERVAL = 60000 -- 1 minute
 LOOP = true -- should we enter the sampling loop or go into interactive mode
 
 -- only trigger on falling edges
-he.interrupt_cfg("int0", "f", 10)
+he.interrupt_cfg { pin = "int0", edge = "falling", debounce = 10 }
 -- construct the sensor
 sensor = assert(vcnl4010:new())
 -- max current, 200ma
