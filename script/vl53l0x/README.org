@@ -1,0 +1,442 @@
+* Introduction
+
+These are some quick nodes on the VL53L0X module and hacking on it. There are
+also included notes on Helium Script.
+
+** Basic coding rules
+
+   + Use 80 columns for wrap-around on code and documentation, as much as
+     possible. (One could argue this is archaic, but: with a good font you can
+     cleanly fit multiple files in a big screen; it looks better on smaller
+     screens; and is a useful style guide to try and keep your code looking
+     nice.)
+   + Always document the publicly available API both at the definition, and the
+     module header.
+   + Comment liberally. This is always important -- but vitally so when doing
+     any kind of embedded development, in practice.
+     + Always refer to any external code or schematics that may be useful.
+     + Descriptions of any physical hardware or environment assumptions are
+       critical.
+
+* Tips for Helium Script
+
+The following notes are some accumulated thoughts and tips on writing Helium
+Script, based on the experience of working on the VL53L0X module.
+
+These tips are notably efficiency-oriented: Lua is a great language, and in many
+practical scenarios its speed will be enough. But memory usage is still very
+important on embedded devices such as the Helium Atom, and there can be unclear
+hidden costs with certain abstractions. Like any embedded system in general,
+resources are at a premium, and developers of APIs and embedded libraries must
+keep this in mind. Helium is no different.
+
+The following tips are /mostly/ oriented around writing user-facing modules
+which have a nice API to consume, but need to be efficient under the hood.
+However, basically every tip is still applicable to ordinary Helium Scripts.
+
+*NOTE*: Some of these tips could be considered 'general' optimizations that
+would help in almost any code or Lua implementation. Others may be specific to
+the Helium Script environment in various ways.
+
+** Memory is king
+
+The most premium resource in Helium Script is *the amount of available memory
+for your scripting environment and Atom module*.
+
+Memory is used by both code /and/ ordinary, garbage-collected allocations. Both
+of these (as far as I can tell) are essentially shared in the Helium Script
+environment, so adding code reduces the amount of live objects you can
+have, essentially -- and vice versa.
+
+** API Design
+
+*** Avoid any extraneous object/module state, if possible
+
+    Probably the most important API design tip is to *minimize internal state*
+    as much as you can.
+
+    Helium Modules are represented as Lua objects, which are Lua tables with
+    a chosen metatable, containing metamethods for object events.
+
+    Every extra piece of state in a Lua object (AKA table) requires a
+    significant amount of overhead, as the runtime must keep track of the entry
+    in the table, possibly forward calls to it from the metatable (or at least
+    check for this), and generally does all kinds of stuff.
+
+    Some amount of internal state is unavoidable; for example, including the I2C
+    address of the attached device in the object state is often done. Certain
+    sensors may /require/ some hidden state which simply can't be easily
+    recovered or recalculated at some point.
+
+    If at all possible: just try to minimize object fields. If you can get away
+    with it, simply make everything ~local~, recompute as many things as
+    possible (trade time for memory), and follow other tips here.
+
+*** Use 'big' hammers with few functional API calls
+
+    Following the previous tip: avoid having lots of small APIs. Instead, try to
+    have less APIs that have bigger interfaces. This avoids extraneous module
+    state (see previous point) more than anything. For example, *don't* do this:
+
+    #+BEGIN_SRC lua
+    function mymodule:turn_on(options)
+      -- ...
+    end
+
+    function mymodule:turn_off(options)
+      -- ...
+    end
+    #+END_SRC
+    
+    Do this:
+
+    #+BEGIN_SRC lua
+    function mymodule:toggle(b, options)
+      if b then
+        -- if b == true, then turn on.
+        -- ...
+      else
+        -- if b == false, then turn off.
+        -- ...
+      end
+    end
+    #+END_SRC
+    
+    On that note: try to leverage the fact that unspecified parameters are
+    implicitly `nil`, and use sensible defaults, in order to reduce "common"
+    patterns. For example, if the user of the above code only says
+    ~mymodule:toggle(true)~, try having sensible defaults in the case ~options
+    == nil~.
+
+    Doing this correctly means you minimize the number of interfaces the object
+    exposes. It also means you do not have to construct any heap objects in
+    order to pass common, default arguments; implicitly using "good" defaults
+    allows less allocation churn to occur.
+
+    (Yes, this is generally in conflict with the principle of DRY and keeping
+    things small and decoupled, etc. But as a module author, you're in a special
+    place, a limbo, where normal rules don't apply.)
+
+** Efficiency tips
+
+*** No tables
+
+    Avoid any and all Lua tables: at all costs.
+
+    Tables are incredibly expensive runtime structures: they are the heart of
+    the Lua object system and much Lua programming, and you /will/ use them -
+    they are unavoidable.
+
+    But, in any way possible: avoid table allocations and table uses in your own
+    code, unless absolutely necessary (e.g. calling an API that takes or returns
+    a table).
+
+    Every table comes not only with the overhead of the objects/fields/methods
+    inside the table, but it also must necessarily include the overhead of heap
+    space for GC pointers/headers, the metatable and default metamethod
+    pointers, and many other extra runtime objects.
+
+    If you must allocate tables: allocate ~local~ tables (see the next tip), and
+    try to keep them live for as small a window as possible so the garbage
+    collector may reclaim it.
+
+*** Make _everything_ ~local~
+
+    Unless absolutely unavoidable: make every variable you can a ~local~
+    variable, and absolutely avoid any non ~local~ variables you can.
+
+    Non ~local~ variables are incredibly expensive, because the Lua runtime
+    inserts the given object into a global table so it is put into scope. This
+    is expensive, may cause the table to be shuffled, etc, and should be avoided
+    at all costs. (This is the same table global function definitions, etc, are
+    put into).
+
+    This includes any ~function~ definitions: if you have a global function
+    which is only called in one or two places, you are strongly suggested to
+    move it into a bound, local variable such as ~local f = function(x) ... end~
+
+    *This also includes the definition of your Helium Script module object*.
+    When defining Helium Script modules for hardware, you often use a pattern
+    such as ~r = {}~ to declare the empty object, you write methods for that
+    object, and at the end, you write ~return r~ so that the module can be used
+    with ~require~. *Make sure you mark the variable ~r~ as ~local~*! This will
+    save more memory.
+
+    *This also includes any local variables used in your Helium Script in your
+    main loop*. This is very subtle and may hit you when dealing with
+    interrupts. For example, if you have the following code, *this is bad*:
+
+    #+BEGIN_SRC lua
+    local now = he.now() -- take first timestamp
+    while true do
+      -- ... sample sensor ...
+      -- ... he.send(...) ...
+
+      -- wait, handle any events
+      now, interrupted, events = he.wait{time=now + INTERVAL}
+      if interrupted then
+        -- ...
+      end
+    end
+    #+END_SRC
+
+    This is because the variables ~interrupted~ and ~events~ will be assigned to
+    the global object scope, as they have not been declared before. As ~events~
+    is generally a table, this is extra expensive. It's easy to miss this.
+
+    The solution to the above is to first declare those variables as ~local~:
+
+    #+BEGIN_SRC lua
+    local interrupted = false
+    local events      = {}
+    local now         = he.now()
+    while true do
+      -- ...
+
+      now, interrupted, events = he.wait{time=now + INTERVAL}
+      -- ...
+    end
+    #+END_SRC
+
+    Now, these objects are always ~local~, so they are much less expensive.
+
+*** ... unless you can remove it ...
+
+    Following the previous point(s): if you can get away with something being
+    removed and just copying it inline -- do it.
+
+    There is no variable declaration that uses less memory and allocations than
+    /no/ variable declaration, strictly speaking.
+
+    This includes doing very tedious, boring, error-prone things like manual
+    constant propagation. The Lua compiler is simple, and in general certain
+    constructs cannot be statically compiled away, in any case. It rarely will
+    do things like constant folding across multiple call sites, etc it seems,
+    and instead emits very direct code.
+
+    You might think "But recomputing things might do more work!" Which leads us
+    to...
+
+*** Inline everything: code is cheaper than allocations
+
+    In general, the amount of memory used by extra instructions (resulting in
+    more Lua bytecode being loaded onto the device) is dwarfed by the amount of
+    memory done by dynamic allocations, table/object manipulation, heap
+    fragmentation, etc.
+
+    As a result: it is almost _always_ preferable to simply inline absolutely
+    everything you can, to the point nothing extraneous is exposed. This is
+    typically a burden on the author, but makes life for users much better as
+    they have more room for computing.
+
+    Don't leave extra functions around. Don't have extraneous object fields
+    if things can be recomputed, and inline functions (even ~local~ ones)
+    unless doing so results in unreasonable code bloat/duplication.
+
+*** Optimize for power
+
+    Power usage is important for all Helium devices and scripts. The following
+    is not specific to the VL53L0X or any Helium modules in particular; in
+    general, it is actually more of a concern of client code, but module authors
+    may need to expose extra help for finer control.
+
+    Always document power usage constraints for your module if it's an API to
+    some hardware device. (At least include the datasheet lies from the vendor,
+    if nothing else.) Users always appreciate this at a glance.
+
+    Helium Script features the ~he.power_set~ and ~he.power_get~ APIs which can
+    be used to toggle the power for the VDD pin, which is the power pin for an
+    attached sensor (specifically it toggles VSW, which is the voltage switch
+    for VDD). This can be used to enter 'deep sleep' states where the attached
+    device is off, ready to be re-powered on demand.
+
+    Aside from that, the sensor you have may in fact have its own power savings
+    methods. For example, the VL53L0X supports "HW" and "SW" standby mode,
+    controlled by an external XSHUT pin -- HW Standby allows deeper power
+    savings.
+
+    If you can, expose power control APIs to the user -- but *don't* make the
+    calls to flip VSW/VDD board power yourself. That is territory that should be
+    left to the user (as they have the knowledge of when it is appropriate; e.g.
+    if the attached sensor is actually pinned through an extension board, you
+    don't want to turn off the whole extension board).
+
+    Finally, many sensors feature interrupt-triggered, user-controllable events.
+    For example, the VL53L0X supports range measurement interrupts, which send a
+    signal whenever a range measurement has been completed by a sensor, and can
+    be safely sampled by the user. Helium Script allows registering interest in
+    interrupt signals through the ~he.interrupt_cfg~ API. Expose any possible
+    interrupt pins you can, if at all possible.
+
+    Try to expose all these features: interrupts can be used, along with Helium
+    power APIs, sensor power features, and ~he.wait~ calls to give end-users
+    careful control over power management in a variety of scenarios, and avoids
+    having the module author confer too many decisions.
+
+    On that note...
+
+*** Watch that Radio
+
+    When using Helium Script, you'll eventually end up sending samples to the
+    Helium Cloud. This is done with the ~he.send~ API, to send a sample at a
+    specific timestamp. To do this, the Helium Radio component connects to the
+    Helium Element over a 900MHz or 2.4GHz signal in order to transfer
+    timeseries data. This is done transparently to the user, however...
+
+    The radio dynamically powers on /and/ off based on usage requirements. It is
+    also one of the most power-hungry components on the Atom device, drawing
+    up-to 150mA during wake-up and signal send/retrieval.
+
+    As a result, wakeups are expensive. But keeping the radio on /all the time/
+    without allowing it to sleep is also expensive -- and simply sending
+    non-stop constant samples is very power intensive (though The Cloud can
+    surely take it, your device cannot). Furthermore, radio wakeups do not
+    /only/ use power: *radio wakeups and radio usage uses memory as well*.
+
+    You should carefully consider: sensor power use, your desired application
+    and its expected usage scenarios, Helium Atom power use (including radio
+    power), and the juice available in your source when thinking about all this.
+
+    However: a good, concrete tip for reducing radio usage is...
+
+*** Buffering your samples
+
+    An easy way to help fine-tune usage of the radio for sending samples to the
+    Helium Cloud is to simply buffer them in memory, and submit them all at
+    once.
+
+    In short: create a Lua table that you push entries into. Once a certain
+    number of entries have been reached, flush all of those at once into the
+    cloud with a series of ~he.send~ calls (note that you may, for many samples,
+    need to call ~he.wait~ as well to avoid making the scheduler angry).
+
+    Note that in this setup, the buffer is in-memory only -- if your Atom device
+    loses power before the samples can be submitted, they're gone forever.
+
+    (In the future, the Helium Script API will hopefully export some API to
+    access non-volatile local storage on the device, making this less of an
+    issue.)
+
+    A very simple queue implementation follows, based on the implementation from
+    Bryan Fink for [[https://github.com/beerriot/helium][his BeerRiot Code]]. Note that this is structured as a Helium
+    module to be reusable -- but that takes up precious space. For your own
+    modules, consider this just a demo.
+
+    The below module is (essentially) used in the low-power and interrupt
+    examples for the VL53L0X sensor.
+
+    #+BEGIN_SRC lua
+    -- using this module:
+    --
+    --     local q = queue:new(3, {{"proximity","f"}, {"enabled","b"}})
+    --
+    --     q:add(he.now(), {10.5,  false})
+    --     q:add(he.now(), {4.23,  true})
+    --     q:add(he.now(), {10.00, true}) -- samples are flushed on this call
+    --
+
+    local queue = {}
+
+    function queue:new(max, ports)
+      for _,v in ipairs(ports) do
+        assert(v[1] and v[2])
+      end
+
+      local o = {
+        max     = max or 1,-- Max number of buffered samples
+        ports   = ports,   -- Port->type mapping
+        entries = {},      -- State containing the current entries
+        count   = 0,       -- The current number of entries
+      }
+
+      -- Set up Lua metatable object and return it
+      setmetatable(o, self)
+      self.__index = self
+      return o
+    end
+
+    function queue:add(time, values)
+      assert(time and values)
+
+      self.count = self.count + 1
+      self.entries[self.count] = { time, values }
+
+      if self.count >= self.max then
+        for i=1,self.count do
+          for k,v in ipairs(self.ports) do
+            he.send(v[1], self.entries[i][1], v[2], self.entries[i][2][k])
+          end
+        end
+
+        self.count = 0
+        -- we'll just let queue:add overwrite instead of forcibly clearing
+        -- the `self.entries` table
+      end
+    end
+    #+END_SRC
+    
+    As mentioned: this is just a sample. Integrate the above idea however you
+    need.
+
+** General tips
+
+*** Watch memory usage
+
+    *NOTE*: At the moment, memory usage/monitoring utilities for Helium Script
+    are /extremely/ limited, almost entirely to "total kilobytes of heap usage".
+    As a result, many things can be deeply misleading or results may seem
+    entirely erratic.
+
+    During module development, monitoring memory usage is important and generally
+    helps you understand the overall constraints of your code. To an extent.
+
+    The easiest way to do this is simply to use the ~collectgarbage("count")~
+    Lua API in order to get the number of kilobytes used by the Lua runtime, as
+    a ~float~. You can then perform whatever action you want, and call
+    ~collectgarbage~ again, subtracting the previous value. This will give you a
+    (very) rough estimate of what the memory usage of your module is.
+
+    In the future, the Helium Script environment will hopefully expose more
+    detailed memory usage information (precise code/heap usage, fragmentation,
+    etc).
+
+*** Document the hardware
+
+    It's incredibly important that you document the hardware you're using, any
+    needed pinouts, extra kit, device assumptions, or otherwise unclear
+    specifics that might trip up users.
+
+    This is always for your benefit, and the benefit of any users you have.
+    Consider it being a good citizen.
+
+    If you're unclear on what to document: always under-assume and over-achieve.
+    This proves incredibly useful in the future when: you've forgotten
+    everything, or anyone uses the same hardware in another system (e.g. a
+    hardware sensor that is *not* a Helium Atom, but may use the Helium Cloud).
+    New and experienced users need to know what they're getting into.
+
+    Always include the device datasheet, if you can -- which hopefully can
+    include reference power specifics, interface characteristics, and more. API
+    datasheets range from "totally useless" for writing Helium Scripts to "very
+    useful", so include them on a need-to-have basis.
+
+*** Test realistically
+
+    Always test with a realistic harness that /actually/ stresses the device
+    and, preferably, uses all the functionality you expect users to use in some
+    kind of real module. *Always do this first, and test with a "fully loaded"
+    harness -- forevermore*.
+
+    This means you always want to send results to the Helium API in your scripts
+    with something like ~he.send~, at least until you are *sure* you have fit
+    all your desired features into it. If you have a high power-use device and
+    expect to buffer samples and turn VSW power on/off -- write your test
+    harness to include this scenario *first*.
+
+    Do *not* wait until you have written the entire module, only to try and call
+    ~he.send~ and realize -- oops, it has exceeded your memory budget to use the
+    radio. You will always at least need radio and, preferably, a little extra
+    space for any table objects or whatever libraries users might use.
+
+    It's one thing to test an API. In practice you must test actual expected
+    usage scenarios, and adjust accordingly.
