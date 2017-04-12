@@ -1,11 +1,26 @@
--- Sampple main script for the sx1509
--- This script requires the sx1509.lua library
--- Run with helium-script -m main.lua sx1509.lua
+--- Example main loop for the Helium Digital Extension Board.
+--
+-- Requires helium-script 2.x and the sx1509.lua library.
+--
+-- This main loop cycles the LED on board the Digital Extension Board
+-- on a timer and listens for any interrupts on INT0 coming from pin
+-- 1. Then the interrupt is detected the LED colors are changed to
+-- another random set of RGB values.
+--
+-- @script sx1509.main
+-- @license MIT
+-- @copyright 2017 Helium Systems, Inc.
+-- @usage
+-- # In semi-hosted mode over USB
+-- $ helium-script -m main.lua sx1509.lua
+--
+-- # Upload to device over USB
+-- $ helium-script -up -m main.lua sx1509.lua
 
 sx1509 = require("sx1509")
 
 now = he.now() --set current time
-he.interrupt_cfg("int0", "e", 10)
+he.interrupt_cfg { pin = "int0", edge = "either", debounce = 10 }
 digital = assert(sx1509:new())
 digital:reset()
 -- debounce and LED driver need the clock enabled
@@ -21,7 +36,8 @@ digital:set_led_driver(15, true)
 
 digital:set_pin_direction(1, "input") --set pin 1 as an input pin
 
-digital:set_pin_interrupt(1, true, "f") -- like he.interrupt, takes r, f or e
+-- enable interrupts on pin 1. Like he.interrupt, takes rising, falling or either
+digital:set_pin_interrupt(1, true, "falling")
 -- require 2 consecutive samples to be the same 32ms apart before
 -- firing an interrupt
 digital:set_debounce_rate(digital.DEBOUNCE_RATE_32ms)

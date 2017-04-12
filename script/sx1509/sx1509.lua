@@ -1,14 +1,33 @@
--- Helum script for the Digital Expansion Board
-
--- Address jumpers
--- 00 => 0x3E
--- 01 => 0x3F
--- 10 => 0x70
--- 11 => 0x71
+----
+-- SX1509 Helium Digital Extension Board
+-- This is the library class for configuration and using the SX1509
+-- part used on the Helium Digital Extension Board
+--
+-- @module sx1509
+-- @license MIT
+-- @copyright 2017 Helium Systems, Inc.
+-- @usage
+-- sx1509 = require("sx1509")
+-- digital = sx1509:new()
+-- --- Let's turn on the LED
+-- digital:set_clock(true)
+-- -- turn on the LED driver
+-- digital:enable_led_driver(true)
+-- digital:set_pin_direction(13, "output") --set pin 13 (red LED) as an output pin
+-- digital:set_pin_direction(14, "output") --set pin 14 (green LED) as an output pin
+-- digital:set_pin_direction(15, "output") --set pin 15 (blue LED) as an output pin
+-- digital:set_led_driver(13, true) -- connect them to the LED driver so we can use PWM
+-- digital:set_led_driver(14, true)
+-- digital:set_led_driver(15, true)
+-- -- Let's make it all white (r, g, b)
+-- digital:set_pin_pwm(13, digital.pwm.ION, 255)
+-- digital:set_pin_pwm(14, digital.pwm.ION, 255)
+-- digital:set_pin_pwm(15, digital.pwm.ION, 255)
 
 i2c = he.i2c
 
 sx1509 = {
+    --- Default I2C address for module
     DEFAULT_ADDRESS   = 0x3E,
     INPUTDISABLEB     = 0x00,
     INPUTDISABLEA     = 0x01,
@@ -44,17 +63,46 @@ sx1509 = {
     CLOCK             = 0x1E,
     MISC              = 0x1F,
 
-    -- debounce rate, in milliseconds
+    --- 0.5 ms debounce rate
     DEBOUNCE_RATE_0_5ms = 0,
+    --- 1 ms debounce rate
     DEBOUNCE_RATE_1ms   = 1,
+    --- 2 ms debounce rate
     DEBOUNCE_RATE_2ms   = 2,
+    --- 4 ms debounce rate
     DEBOUNCE_RATE_4ms   = 3,
+    --- 8 ms debounce rate
     DEBOUNCE_RATE_8ms   = 4,
+    --- 16 ms debounce rate
     DEBOUNCE_RATE_16ms  = 5,
+    --- 32 ms debounce rate
     DEBOUNCE_RATE_32ms  = 6,
+    --- 64 ms debounce rate
     DEBOUNCE_RATE_64ms  = 7
 }
 
+
+---- PWM configuration settings.
+-- All GPIO pins can be independently configured for PWM `ION`, `TON`,
+-- and the corresponsing `OFF`.
+--
+-- Only pins 4-7 and 12-15 support `RISE` and `FALL` fade (aka
+-- "breahting") features.
+--
+-- Configuring any of the pins for PWM use enabling the SX1509 clock
+-- using the @{set_clock} function.
+--
+-- @field TON Time for a PWM configured pin to be on.
+-- @field ION Intensity for a PWM configured pin when on.
+-- @field OFF Time or intensity when a configured PWM pin is OFF.
+-- @field RISE  Time to a PWM configured pin to fade to on.
+-- @field FALL Time to a PWM configured pin to fade to off.
+-- @table pwm
+-- @see set_clock
+-- @usage
+-- digital = sx1509:new()
+-- -- set intensity when on to maximum value
+-- digital.set_pin_pwm(13, digital.pwm.ION, 255)
 local pwm = {
     TON  = 0x01,
     ION  = 0x02,
@@ -86,6 +134,11 @@ pwm.descriptors = {
 
 sx1509.pwm = pwm
 
+--- Construct a new SX1509 sensor object.
+--
+-- @usage local sensor = sx1509:new()
+-- @param[opt=DEFAULT_ADDRESS] address I2C address to use
+-- @treturn sx1509 a verified connected sensor object
 function sx1509:new(address)
     address = address or sx1509.DEFAULT_ADDRESS
     -- We use a simple lua object system as defined
@@ -105,6 +158,10 @@ function sx1509:new(address)
     return o
 end
 
+--- Check sensor connectivity
+-- Checks whether the sensor is actually connected to the Atom Board.
+--
+-- @return true if the sensor is connected to the board
 function sx1509:is_connected()
     -- read the RESET register, should always be 0
     -- not sure what better to do here?
@@ -162,6 +219,10 @@ local function bit_set(bit, value, condition)
     end
 end
 
+--- Sets the GPIO direction of a given pin
+--
+-- @param pin the pin number to get.
+-- @param val the direction of the pin. One of 'input' or 'output'.
 function sx1509:set_pin_direction(pin, val)
     local update = function(r)
         return bit_set(pin, r, not (val == "output"))
@@ -169,6 +230,10 @@ function sx1509:set_pin_direction(pin, val)
     return self:_update(self.DIRB, ">I2", update)
 end
 
+--- Set the pull up/down resistors for a given pin
+--
+-- @param pin pin to configure the pull direction for
+-- @param val The pull direction. One of 'up', 'down', or 'none'
 -- set a pin's pull direction, can be "up", "down" or "none"
 function sx1509:set_pin_pull(pin, val)
     local update = function(r)
@@ -184,7 +249,10 @@ function sx1509:set_pin_pull(pin, val)
     return self:_update(self.PULLDOWNB, ">I2", update)
 end
 
--- set an output pin to be in open drain mode, true or false
+--- Configure a given pin to open drain mode.
+--
+-- @param pin pin number to configure.
+-- @param val true to set to open drain mode, false otherwise
 function sx1509:set_open_drain(pin, val)
     local update = function(r)
         return bit_set(pin, r, val == true)
@@ -192,9 +260,16 @@ function sx1509:set_open_drain(pin, val)
     return self:_update(self.OPENDRAINB, ">I2", update)
 end
 
--- interrupts and edge events are 2 different things, the sx1509 can
--- apparently watch for edge events and record them independently of
--- throwing an interrupt
+--- Configure interrupts for a given pin.
+--
+-- The SX1509 can watch and record edge events independently from
+-- throwing interrupts. This interrupt configuration sets up both the
+-- interrupt and the edge event detection.
+--
+-- @param pin pin number to configure
+-- @param val true to enable the interrupt, false to disable it
+-- @param direction direction of the edge to interrupt on.
+-- One of `rising` `falling` or `either`.
 function sx1509:set_pin_interrupt(pin, val, direction)
     local update = function(r)
         return bit_set(pin, r, not val)
@@ -207,6 +282,15 @@ function sx1509:set_pin_interrupt(pin, val, direction)
     return self:set_pin_event(pin, direction)
 end
 
+
+--- Configures edge event detection for a given pin.
+--
+-- Edge events can be detected without throwing interrupts. This
+-- configures edge event detection for a given pin and direction.
+--
+-- @param pin pin number to configure
+-- @param direction the direction of the edge event to detect. One of
+-- `rising`, `falling`, or `either`
 function sx1509:set_pin_event(pin, direction)
     -- we need to calculate which of the 4 interrupt registers we need to tweak
     local register_offset = 4 - (math.floor(pin / 4) + 1)
@@ -226,6 +310,11 @@ function sx1509:set_pin_event(pin, direction)
     return self:_update(reg, "B", function(r) return r | dirvalue end)
 end
 
+---- Configure PWM for a given pin.
+--
+-- @param pin pin to configure for PWM.
+-- @param operation one of the `pwm` constants.
+-- @param value the pwm value to use. Between 0 and 255.
 function sx1509:set_pin_pwm(pin, operation, value)
     -- get the pwm descriptor
     local descriptor = self.pwm.descriptors[pin + 1]
@@ -248,6 +337,31 @@ function sx1509:set_pin_pwm(pin, operation, value)
     return i2c.txn(i2c.tx(self.address, register, value))
 end
 
+--- Configure the debounce rate for all pins.
+--
+-- Debounce is configured globally for the SX1509 but can then be
+-- turned on or of for individual pins.
+--
+-- @param rate one of the `DEBOUNCE_` constants
+-- @see set_pin_debounce
+-- @see set_clock
+-- @usage
+-- digital = sx1509:new()
+-- digital:set_debounce_rate(digital.DEBOUNCE_16ms)
+-- -- turn on configured debounce for pin 1
+-- digital.set_pin_debounce(1, true)
+function sx1509:set_debounce_rate(rate)
+    -- 3 bit value
+    i2c.txn(i2c.tx(self.address, self.DEBOUNCECONFIG, rate & 0x7))
+end
+
+--- Enable or disable debounce for a given pin.
+-- The actual debounce rate is configured once for the whole system.
+--
+-- @param pin pin to configure debounce for.
+-- @param val true to enable, false to disable debounce.
+-- @see set_debounce_rate
+-- @see set_clock
 function sx1509:set_pin_debounce(pin, val)
     local update = function(r)
         return bit_set(pin, r, val)
@@ -255,16 +369,38 @@ function sx1509:set_pin_debounce(pin, val)
     return self:_update(self.DEBOUNCEB, ">I2", update)
 end
 
+--- Get the current event status for a given pin.
+--
+-- The SX1509 can detect edge events without throwing interrupts. This
+-- returns whether an edge event was seen since the last time the
+-- events status was cleared.
+--
+-- @param pin the pin to get the event status for.
+-- @return true if an edge event was seen for the given pin, false otherwise.
 function sx1509:event_status(pin)
     return self:_get(self.EVENTSTATUS, ">I2",
                      function(r) return r & (1 << pin) > 0 end)
 end
 
+--- Get the interrupt status for a given pin.
+--
+-- The script will receive interrupts on the sensor bus INT0 or INT1
+-- lines for any pin that was configured to throw interrupts. In order
+-- to know if a given pin caused an interrupt since the interrupt was
+-- last cleared, you can use this function.
+--
+-- @param pin pin to request interrupt status for.
+-- @return true if the given pin threw an interrupt, false otherwise.
 function sx1509:interrupt_status(pin)
     return self:_get(self.INTERRUPTSOURCE, ">I2",
                      function(r) return r & (1 << pin) > 0 end)
 end
 
+--- Clear all events and interrupts.
+--
+-- After detecting an interrupt, call this function to clear the
+-- interrupt and event flags for all pins to get set up for the next
+-- interrupt or event.
 function sx1509:clear_events()
     -- clears eventstatus register, which also clears the
     -- interruptsource register
@@ -284,6 +420,13 @@ function sx1509:set_autoclear(val)
     return self:_update(self.MISC, "B", update)
 end
 
+--- Enable the LED driver.
+--
+-- In order to configure and use PWM for any given pin, the LED driver
+-- needs to be enabled. Use this function to enable or disable the LED
+-- driver.
+--
+-- @param val true to enable the LED driver, false to disable it.
 function sx1509:enable_led_driver(val)
     local update = function(r)
         if val then
@@ -295,6 +438,10 @@ function sx1509:enable_led_driver(val)
     return self:_update(self.MISC, "B", update)
 end
 
+--- Configure the given pin to be driven by the LED driver to use PWM
+--
+-- @param pin pin to configure for PWM use.
+-- @param val true to enable PWM use, false if not.
 function sx1509:set_led_driver(pin, val)
     local update = function(r)
         return bit_set(pin, r, val)
@@ -302,16 +449,15 @@ function sx1509:set_led_driver(pin, val)
     return self:_update(self.LEDDRIVERENABLE, ">I2", update)
 end
 
-function sx1509:set_debounce_rate(rate)
-    -- 3 bit value
-    i2c.txn(i2c.tx(self.address, self.DEBOUNCECONFIG, rate & 0x7))
-end
-
 function sx1509:read_pin(pin)
     return self:_get(self.DATAB, ">I2",
                      function(r) return (r & (1 << pin)) > 0 end)
 end
 
+--- Set a given pin to high or low.
+--
+-- @param pin pin to set high or low.
+-- @param val true to set pin high, 0 to set pin low.
 function sx1509:write_pin(pin, val)
     local update = function(r)
         return bit_set(pin, r, val)
@@ -319,12 +465,20 @@ function sx1509:write_pin(pin, val)
     return self:_update(self.DATAB, ">I2", update)
 end
 
+--- Toggle a given pin to the opposite state.
+-- If the given pin is high then set it to low or vice versa.
+--
+-- @param pin to toggle based on it's current state.
 function sx1509:toggle_pin(pin)
     local mask = (1 << pin)
     return self:_update(self.DATAB, ">I2", function(r) return r ~ mask end)
 end
 
---Turns on the internal clock, must be on for PWM/debounce to work
+--- Turn on the internal clock
+--
+-- For PWM and debounce to work the internal clock must be turned on
+--
+-- @param val true to turn the clock on, false to turn it of.
 function sx1509:set_clock(val)
     if not val then
         i2c.txn(i2c.tx(self.address, self.CLOCK, 0x00))
@@ -333,7 +487,10 @@ function sx1509:set_clock(val)
     end
 end
 
---resets all registers
+--- Reset all I2C registers
+--
+-- Useful for library development purposes since the registers will
+--hold state that may nee to be reset for a clean start.
 function sx1509:reset()
     i2c.txn(i2c.tx(self.address, self.RESET, 0x12))
     i2c.txn(i2c.tx(self.address, self.RESET, 0x34))
