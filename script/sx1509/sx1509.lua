@@ -81,6 +81,28 @@ sx1509 = {
     DEBOUNCE_RATE_64ms  = 7
 }
 
+
+---- PWM configuration settings.
+-- All GPIO pins can be independently configured for PWM `ION`, `TON`,
+-- and the corresponsing `OFF`.
+--
+-- Only pins 4-7 and 12-15 support `RISE` and `FALL` fade (aka
+-- "breahting") features.
+--
+-- Configuring any of the pins for PWM use enabling the SX1509 clock
+-- using the @{set_clock} function.
+--
+-- @field TON Time for a PWM configured pin to be on.
+-- @field ION Intensity for a PWM configured pin when on.
+-- @field OFF Time or intensity when a configured PWM pin is OFF.
+-- @field RISE  Time to a PWM configured pin to fade to on.
+-- @field FALL Time to a PWM configured pin to fade to off.
+-- @table pwm
+-- @see set_clock
+-- @usage
+-- digital = sx1509:new()
+-- -- set intensity when on to maximum value
+-- digital.set_pin_pwm(13, digital.pwm.ION, 255)
 local pwm = {
     TON  = 0x01,
     ION  = 0x02,
@@ -116,7 +138,7 @@ sx1509.pwm = pwm
 --
 -- @usage local sensor = sx1509:new()
 -- @param[opt=DEFAULT_ADDRESS] address I2C address to use
--- @treturn ina219 a connected sensor object
+-- @treturn sx1509 a verified connected sensor object
 function sx1509:new(address)
     address = address or sx1509.DEFAULT_ADDRESS
     -- We use a simple lua object system as defined
@@ -321,6 +343,8 @@ end
 -- turned on or of for individual pins.
 --
 -- @param rate one of the `DEBOUNCE_` constants
+-- @see set_pin_debounce
+-- @see set_clock
 -- @usage
 -- digital = sx1509:new()
 -- digital:set_debounce_rate(digital.DEBOUNCE_16ms)
@@ -336,8 +360,8 @@ end
 --
 -- @param pin pin to configure debounce for.
 -- @param val true to enable, false to disable debounce.
--- @see sx1509:set_debounce_rate
--- @see sx1509:set_clock
+-- @see set_debounce_rate
+-- @see set_clock
 function sx1509:set_pin_debounce(pin, val)
     local update = function(r)
         return bit_set(pin, r, val)
@@ -463,7 +487,10 @@ function sx1509:set_clock(val)
     end
 end
 
---resets all registers
+--- Reset all I2C registers
+--
+-- Useful for library development purposes since the registers will
+--hold state that may nee to be reset for a clean start.
 function sx1509:reset()
     i2c.txn(i2c.tx(self.address, self.RESET, 0x12))
     i2c.txn(i2c.tx(self.address, self.RESET, 0x34))
