@@ -4,6 +4,11 @@ i2c = he.i2c
 
 lsm9ds1_acc = {
     DEFAULT_ADDRESS = 0x6B, -- alternative is 0x6A
+ 
+    INT_GEN_CFG_XL   = 0x06,
+    INT_GEN_THS_X_XL = 0x07,
+    INT_GEN_THS_Y_XL = 0x08,
+    INT_GEN_THS_Z_XL = 0x09,
 
     INT1_CTRL = 0x0C,
     WHO_AM_I = 0x0f,
@@ -183,6 +188,21 @@ function lsm9ds1_acc:set_gyro_interrupt_threshold(axis, threshold)
                         function(r) return (r & 0x8000) | ((a & 0x7f) << 8) | b end)
 end
 
+function lsm9ds1_acc:set_accel_interrupt_threshold(axis, threshold)
+    assert(threshold >= 0 and threshold < 32640 ,
+           "threshold value out of range")
+    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
+           "invalid axis")
+
+    local reg = self.INT_GEN_THS_X_XL
+    if axis == self.AXIS_Y then
+        reg = self.INT_GEN_THS_Y_XL
+    elseif axis == self.AXIS_Z then
+        reg = self.INT_GEN_THS_Z_XL
+    end
+
+    return i2c.txn(i2c.tx(self.address, reg, math.floor(threshold/128)))
+end
 
 function lsm9ds1_acc:get_gyro_interrupt_threshold(axis)
     assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
@@ -228,8 +248,29 @@ function lsm9ds1_acc:config_gyro_interrupt(axis, threshold, low)
     return self:_update(self.INT_GEN_CFG_G, "B", function(r) return r | int_cfg end)
 end
 
+function lsm9ds1_acc:config_accel_interrupt(axis, threshold, low)
+    assert(axis == self.AXIS_X or axis == self.AXIS_Y or axis == self.AXIS_Z,
+           "invalid axis")
+    local result = self:set_accel_interrupt_threshold(axis, threshold)
+    if not result then
+        return false, "unable to set interrupt threshold"
+    end
+
+    -- This relies on the definition of AXIS
+    int_cfg = 1 << axis
+    if not low then
+        int_cfg = int_cfg << 1
+    end
+    return self:_update(self.INT_GEN_CFG_XL, "B", function(r) return r | int_cfg end)
+end
+
+
 function lsm9ds1_acc:enable_gyro_interrupts()
     return self:_update(self.INT1_CTRL, "B", function(r) return r | (1 << 7) end)
+end
+
+function lsm9ds1_acc:enable_accel_interrupts()
+    return self:_update(self.INT1_CTRL, "B", function(r) return r | (1 << 6) end)
 end
 
 function lsm9ds1_acc:init_accel(rate, scale, bandwidth, axes)
